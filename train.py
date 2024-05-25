@@ -112,7 +112,7 @@ if TRAIN_MODEL:
 else:
     # Load the model
     print('Loading saved model...')
-    model.load_state_dict(torch.load('gru_model.pth'))
+    model.load_state_dict(torch.load(f'{MODEL}_model.pth'))
 
 # Testing the model
 print('Evaluating model...')
@@ -133,6 +133,7 @@ for i in range(X_test.shape[0]):
         # Make prediction for the next step
         with torch.no_grad():
             next_point = model(current_sequence)
+            print(next_point)
         
         # Append the predicted point to the series predictions
         series_predictions.append(next_point.item())
