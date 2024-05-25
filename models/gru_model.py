@@ -31,6 +31,7 @@ class GRUModel(nn.Module):
 
 
 # Function to create and return the model
-def get_model(input_size=1, hidden_size=50, num_layers=1, output_size=1):
+def get_gru_model(input_size=1, hidden_size=500, num_layers=10, output_size=10):
+    print(input_size, hidden_size, num_layers, output_size)
     model = GRUModel(input_size, hidden_size, num_layers, output_size)
     return model
