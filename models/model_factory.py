@@ -9,7 +9,8 @@ class ModelFactory:
         model = None
         if model_str == 'GRU':
             model = get_gru_model(*args)
-
+        if model_str == 'MLP':
+            pass
         else:
             raise ValueError('Model not found')
 

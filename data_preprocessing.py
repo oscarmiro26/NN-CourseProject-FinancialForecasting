@@ -8,14 +8,14 @@ def preprocess_data(series, window):
     series = series.dropna().astype(float)
 
     # Compute the moving average (trend)
-    trend = series.rolling(window=window).mean()
+    trend = series.rolling(window=window).mean() # try other methods - ash
 
     # Subtract the trend from the original time-series
     detrended_series = series - trend
     detrended_series.dropna(inplace=True)
 
     # Seasonal decomposition
-    result = seasonal_decompose(detrended_series, model='additive', period=window)
+    result = seasonal_decompose(detrended_series, model='additive', period=window) # try other methods
     seasonal = result.seasonal
     residual = detrended_series - seasonal
 
