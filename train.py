@@ -1,5 +1,6 @@
 # train.py
 
+from re import S
 import numpy as np
 import pandas as pd
 import torch
@@ -21,7 +22,7 @@ data = pd.read_csv(data_file)
 
 # Preprocess the data
 print('Preprocessing data...')
-window = 12
+window = 6
 original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list = prepare_data(data, window)
 
 # Normalize and combine all residuals
@@ -37,7 +38,7 @@ X = np.reshape(X, (X.shape[0], X.shape[1], 1))
 
 # Split into train and test sets
 print('Creating data splits...')
-test_size = 18  # Consider making this configurable
+test_size = 18
 X_train, X_test = X[:-test_size], X[-test_size:]
 Y_train, Y_test = Y[:-test_size], Y[-test_size:]
 
@@ -89,7 +90,6 @@ else:
     # Load the model
     print('Loading saved model...')
     model.load_state_dict(torch.load('gru_model.pth'))
-    model.eval()
 
 # Testing the model
 print('Evaluating model...')
@@ -105,55 +105,4 @@ Y_train = scaler.inverse_transform(Y_train.cpu().numpy().reshape(-1, 1))
 test_predict = scaler.inverse_transform(test_predict.cpu().numpy())
 Y_test = scaler.inverse_transform(Y_test.cpu().numpy().reshape(-1, 1))
 
-# Debugging: Print lengths of arrays
-print(f"Length of train_predict: {len(train_predict)}")
-print(f"Length of test_predict: {len(test_predict)}")
-print(f"Length of trend_list[0]: {len(trend_list[0])}")
-print(f"Length of seasonal_list[0]: {len(seasonal_list[0])}")
 
-# Repeat trend and seasonal components to match prediction lengths
-def repeat_to_length(arr, length):
-    return np.tile(arr, length // len(arr) + 1)[:length]
-
-trend_train = repeat_to_length(trend_list[0], len(train_predict))
-seasonal_train = repeat_to_length(seasonal_list[0], len(train_predict))
-trend_test = repeat_to_length(trend_list[0], len(test_predict))
-seasonal_test = repeat_to_length(seasonal_list[0], len(test_predict))
-
-# Debugging: Print lengths after adjustment
-print(f"Length of trend_train: {len(trend_train)}")
-print(f"Length of seasonal_train: {len(seasonal_train)}")
-print(f"Length of trend_test: {len(trend_test)}")
-print(f"Length of seasonal_test: {len(seasonal_test)}")
-
-# Ensure lengths match before addition
-if len(train_predict) == len(trend_train) == len(seasonal_train):
-    train_predict_final = train_predict + trend_train + seasonal_train
-else:
-    print("Length mismatch in train data")
-
-if len(test_predict) == len(trend_test) == len(seasonal_test):
-    test_predict_final = test_predict + trend_test + seasonal_test
-else:
-    print("Length mismatch in test data")
-
-# Calculate SMAPE on test data
-if 'test_predict_final' in locals():
-    test_smape = smape_loss(torch.Tensor(Y_test).to(device), torch.Tensor(test_predict_final).to(device)).item()
-    print(f'Test SMAPE: {test_smape:.4f}')
-
-    # Plotting
-    print('Plotting data...')
-    plt.figure(figsize=(12, 6))
-    plt.plot(scaler.inverse_transform(scaled_data), label='Original Time Series')
-    plt.plot(np.arange(look_back, len(train_predict_final) + look_back), train_predict_final, label='Training Predictions')
-    plt.plot(np.arange(len(train_predict_final) + (look_back * 2) + 1, len(scaled_data) - 1), test_predict_final, label='Testing Predictions')
-    plt.title('GRU Model Predictions')
-    plt.xlabel('Time')
-    plt.ylabel('Value')
-    plt.legend()
-    plt.show()
-
-# Clear memory
-del X_train, X_test, Y_train, Y_test, train_loader, train_dataset, model, train_predict, test_predict, train_predict_final, test_predict_final
-torch.cuda.empty_cache()

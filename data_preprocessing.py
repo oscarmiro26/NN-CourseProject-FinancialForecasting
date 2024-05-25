@@ -88,7 +88,7 @@ def main():
     data_file = 'M3C_Monthly.csv'
     data = pd.read_csv(data_file)
 
-    window = 12
+    window = 6
 
     preprocessed_data = prepare_data(data, window)
     plot_lists(*preprocessed_data)
