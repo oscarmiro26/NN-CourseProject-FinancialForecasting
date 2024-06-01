@@ -12,13 +12,13 @@ from models.model_factory import ModelFactory
 from util import create_dataset, reconstruct_series, plot_actual_vs_predicted, verify_preprocessing, plot_prediction_errors
 
 # Configurations and Hyperparameters
-DATA_FILE = 'M3C_Monthly.csv'  # Path to the CSV file that contains the data
+DATA_FILE = 'M3C_Monthly_FINANCE.csv'  # Path to the CSV file that contains the data
 
 VALIDATION_SPLIT = 0.1          # Percentage of data to be used for validation, common practice is to allocate around 70-80% of the data for training, 10-15% for validation, and 10-15% for testing.
 TEST_SPLIT = 0.1                # Percentage of data to be used for testing
 PREDICTION_SIZE = 18            # Number of future datapoints to predict
 
-LOOK_BACK = 12                  # Number of past datapoints to consider for prediction. For monthly stock price data, a look-back period of 12 months (1 year) to 24 months (2 years) is often reasonable.
+LOOK_BACK = 12                  # This is basically for LAG feature creation. Number of past datapoints to consider for prediction. For monthly stock price data, a look-back period of 12 months (1 year) to 24 months (2 years) is often reasonable.
 
 MODEL = 'MLP'                   # Model we use (e.g., 'GRU', 'LSTM', 'MLP')
 
@@ -233,5 +233,5 @@ if __name__ == "__main__":
     predictions = evaluate_model(model, X_test, PREDICTION_SIZE)
 
     reconstructed_new_data = reconstruct_series(trend_list, seasonal_list, predictions, PREDICTION_SIZE)
-    plot_prediction_errors(original_series_list, reconstructed_new_data, PREDICTION_SIZE)
-    #plot_actual_vs_predicted(original_series_list, reconstructed_new_data, PREDICTION_SIZE)
+    #plot_prediction_errors(original_series_list, reconstructed_new_data, PREDICTION_SIZE)
+    plot_actual_vs_predicted(original_series_list, reconstructed_new_data, PREDICTION_SIZE)
