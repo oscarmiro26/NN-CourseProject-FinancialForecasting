@@ -94,3 +94,41 @@ def plot_actual_vs_predicted(original_series_list, reconstructed_new_data, lengt
         plt.ylabel('Value')
         plt.legend()
         plt.show()
+
+def plot_prediction_errors(original_series_list, reconstructed_new_data, length=18):
+    """
+    Plot prediction error values for all sequences on one plot.
+
+    Args:
+        original_series_list (list): List of original series.
+        reconstructed_new_data (list): List of predicted series.
+        length (int): Number of points to consider for error calculation.
+
+    Returns:
+        None
+    """
+    errors = []
+
+    # Calculate prediction errors for each series
+    for i in range(len(original_series_list)):
+        # Get the last 'length' actual points
+        actual_data = original_series_list[i].iloc[-length:]
+        predicted_data = reconstructed_new_data[i]
+
+        # Ensure predicted data is of the right length
+        if len(predicted_data) != length:
+            raise ValueError(f"Length of predicted data ({len(predicted_data)}) does not match the required length ({length}).")
+
+        # Calculate the error (Mean Squared Error)
+        error = np.mean((actual_data.values - predicted_data) ** 2)
+        errors.append(error)
+
+    # Plotting
+    plt.figure(figsize=(10, 5))
+    plt.plot(errors, label='Prediction Errors', marker='o')
+    plt.title('Prediction Errors for All Sequences')
+    plt.xlabel('Sequence Index')
+    plt.ylabel('Mean Squared Error')
+    plt.legend()
+    plt.show()
+

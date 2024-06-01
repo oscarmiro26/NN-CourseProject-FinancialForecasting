@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import MinMaxScaler
@@ -8,40 +9,35 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from data_preprocessing import prepare_data
 from models.model_factory import ModelFactory
-from util import create_dataset, smape_loss, reconstruct_series, plot_actual_vs_predicted, verify_preprocessing
-
-
-# train MLP created because MLPs expect input data to be in a flat 2D format WHILE
-# GRUs require input data to be structured as a 3D tensor representing sequences of observations, so it was easier to split the training scripts for me, even though there are shared parts
+from util import create_dataset, reconstruct_series, plot_actual_vs_predicted, verify_preprocessing, plot_prediction_errors
 
 # Configurations and Hyperparameters
 DATA_FILE = 'M3C_Monthly.csv'  # Path to the CSV file that contains the data
-TEST_SIZE = 18                 # Number of datapoints that we want to predict
-LOOK_BACK = 12                 # Number of the past datapoints we should consider for prediction
-MODEL = 'MLP'                  #  Model we use (e.g., 'GRU', 'LSTM', 'MLP')
-TRAIN_MODEL = True             # Set to False to skip training and load the saved model
-VERIFY_PREPROCESSING = False   # Set to True to verify preprocessing steps
-BATCH_SIZE = 64                # Batch size for training- Larger batch sizes can make training faster and more stable, but may require more memory and might not always converge to the best solution.
-NUM_EPOCHS = 20                # Number of epochs for training Early Stopping: Use early stopping to determine the optimal number of epochs.
-                               #Learning Curves: Plot learning curves to visualize how the model performance changes with epochs and decide if more epochs are needed.
-HIDDEN_SIZE = 10               # Number of hidden units - best to perform a search to optimize these
-LEARNING_RATE = 0.0001         # Learning rate for the optimizer. Useful to start with a higher learning rate and gradually decrease it.
-PATIENCE = 5                   # If 5 epochs no improvement on the validation set, stop the training to avoid overfitting
 
+VALIDATION_SPLIT = 0.1          # Percentage of data to be used for validation, common practice is to allocate around 70-80% of the data for training, 10-15% for validation, and 10-15% for testing.
+TEST_SPLIT = 0.1                # Percentage of data to be used for testing
+PREDICTION_SIZE = 18            # Number of future datapoints to predict
+
+LOOK_BACK = 12                  # Number of past datapoints to consider for prediction. For monthly stock price data, a look-back period of 12 months (1 year) to 24 months (2 years) is often reasonable.
+
+MODEL = 'MLP'                   # Model we use (e.g., 'GRU', 'LSTM', 'MLP')
+
+TRAIN_MODEL = True              # Set to False to skip training and load the saved model
+VERIFY_PREPROCESSING = False    # Set to True to verify preprocessing steps
+
+BATCH_SIZE = 64                 # Larger batch sizes can make training faster and more stable but may require more memory. Batch sizes between 32 and 128 are commonly used.
+NUM_EPOCHS = 50                 # Number of epochs for training. The number of epochs should be large enough to allow the model to learn the data well but not so large that it overfits. We are using early stopping based on validation loss, so it can be bigger I guess.
+HIDDEN_SIZE = 20                # Number of hidden units. More hidden units can capture more complex patterns but also increase the risk of overfitting and computational cost. For an MLP, values between 20 and 100 are common starting points.
+LEARNING_RATE = 0.001           # Learning rate for the optimizer. The learning rate controls the step size of each update. A too high learning rate can cause the model to converge too quickly to a suboptimal solution, while a too low learning rate can make training very slow. Typical values range from 0.001 to 0.01.
+PATIENCE = 6                    # Number of epochs with no improvement before stopping. Patience is used in early stopping to avoid premature termination of training. A typical range is between 5 to 10 epochs.
+
+# Define loss function as a parameter
+LOSS_FUNCTION = nn.MSELoss()
 
 def preprocess_data(data, window):
-    """
-    Preprocess the data to extract residuals, trends, and seasonality.
-
-    Args:
-        data (pd.DataFrame): The input data.
-        window (int): The window size for detrending.
-
-    Returns:
-        Tuple: Original series, trends, seasonal components, and residuals.
-    """
     print('Preprocessing data...')
-    original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list = prepare_data(data, window)
+    result = prepare_data(data, window)
+    original_series_list, trend_list, seasonal_list, residual_list, *_ = result
     
     if VERIFY_PREPROCESSING:
         print('  Verifying preprocessing...')
@@ -50,93 +46,92 @@ def preprocess_data(data, window):
     
     return original_series_list, trend_list, seasonal_list, residual_list
 
-def split_data(residual_list, test_size, val_size):
-    """
-    Split residuals into training, validation, and testing sets.
-
-    Args:
-        residual_list (list): List of residuals for each series.
-        test_size (int): The number of test datapoints.
-        val_size (int): The number of validation datapoints.
-
-    Returns:
-        Tuple: Training, validation, and testing residuals.
-    """
+def split_data(residual_list, val_split, test_split):
     print('  Creating data splits...')
+    val_size = int(len(residual_list[0]) * val_split)
+    test_size = int(len(residual_list[0]) * test_split)
     train_residuals_list = [res[:-test_size-val_size] for res in residual_list]
     val_residuals_list = [res[-test_size-val_size:-test_size] for res in residual_list]
     test_residuals_list = [res[-test_size:] for res in residual_list]
     
     return train_residuals_list, val_residuals_list, test_residuals_list
 
-
 def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list):
     """
-    Normalize the training, validation, and testing residuals.
+    Normalize the training, validation, and testing residuals using MinMaxScaler.
 
     Args:
-        train_residuals_list (list): List of training residuals.
-        val_residuals_list (list): List of validation residuals.
-        test_residuals_list (list): List of testing residuals.
+        train_residuals_list (list): List of training residuals for each time series.
+        val_residuals_list (list): List of validation residuals for each time series.
+        test_residuals_list (list): List of testing residuals for each time series.
 
     Returns:
-        Tuple: Normalized training, validation, and testing data, and the scalers.
+        Tuple: Normalized training, validation, and testing data, and the list of scalers used for normalization.
     """
-    print('  Normalizing data...')
+    
+    print('  Normalizing data...')  # Inform that normalization process has started.
+    
+    # Initialize empty lists to store scaled residuals and scalers
     scaled_train_residuals_list = []
     scaled_val_residuals_list = []
     scaled_test_residuals_list = []
     scalers = []
 
+    # Iterate over the residuals of each time series for training, validation, and testing
     for train_res, val_res, test_res in zip(train_residuals_list, val_residuals_list, test_residuals_list):
+        # Initialize the MinMaxScaler to scale data to the range [0, 1]
         scaler = MinMaxScaler(feature_range=(0, 1))
+        
+        # Fit the scaler on the training residuals and transform them
         scaled_train_res = scaler.fit_transform(train_res.values.reshape(-1, 1))
+        # Transform the validation and test residuals using the fitted scaler
         scaled_val_res = scaler.transform(val_res.values.reshape(-1, 1))
         scaled_test_res = scaler.transform(test_res.values.reshape(-1, 1))
 
+        # Append the scaled residuals to their respective lists
         scaled_train_residuals_list.append(scaled_train_res)
         scaled_val_residuals_list.append(scaled_val_res)
         scaled_test_residuals_list.append(scaled_test_res)
+        # Append the scaler to the list of scalers
         scalers.append(scaler)
 
-    # Combine all normalized residuals
+    # Concatenate all scaled residuals to create a single array for each dataset
     scaled_train_data = np.concatenate(scaled_train_residuals_list)
     scaled_val_data = np.concatenate(scaled_val_residuals_list)
     scaled_test_data = np.concatenate(scaled_test_residuals_list)
     
+    # Return the concatenated arrays and the list of scalers
     return scaled_train_data, scaled_val_data, scaled_test_data, scalers
 
+"""
+Explanation of Why This is Useful:
 
-def create_datasets(data, look_back, test_size, val_size):
-    """
-    Prepare training, validation, and testing datasets.
+1. **Consistent Scaling**: Each time series is normalized independently, ensuring that all data is scaled to the same range [0, 1]. This is important because different stocks can have vastly different price ranges, and normalization ensures that each series contributes equally to the model training.
 
-    Args:
-        data (pd.DataFrame): The input data.
-        look_back (int): The number of past datapoints to consider for prediction.
-        test_size (int): The number of test datapoints.
-        val_size (int): The number of validation datapoints.
+2. **Improved Model Performance**: Normalization helps in faster convergence during training and can improve model performance. Neural networks often perform better when input data is scaled.
 
-    Returns:
-        Tuple: Training, validation, and testing datasets, and additional preprocessing results.
-    """
+3. **Handling Multiple Time Series**: By normalizing and then concatenating the data, we effectively create a larger dataset that the model can learn from, which is particularly useful when individual time series are short.
+
+4. **Preservation of Data Characteristics**: Since each series is normalized separately and then concatenated, the unique characteristics of each series are preserved while allowing the model to learn from a combined dataset.
+
+5. **Ease of Data Handling**: Concatenating the data into single arrays for training, validation, and testing makes it easier to handle and feed into the model during training and evaluation phases.
+"""
+
+
+def create_datasets(data, look_back, val_split, test_split):
     original_series_list, trend_list, seasonal_list, residual_list = preprocess_data(data, window=12)
-    train_residuals_list, val_residuals_list, test_residuals_list = split_data(residual_list, test_size, val_size)
+    train_residuals_list, val_residuals_list, test_residuals_list = split_data(residual_list, val_split, test_split)
     scaled_train_data, scaled_val_data, scaled_test_data, scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list)
 
-    # Create training datasets
     X_train, Y_train = create_dataset(scaled_train_data, look_back)
     X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1]))
 
-    # Create validation datasets
     X_val, Y_val = create_dataset(scaled_val_data, look_back)
     X_val = np.reshape(X_val, (X_val.shape[0], X_val.shape[1]))
 
-    # Create evaluation datasets
     X_test, Y_test = create_dataset(scaled_test_data, look_back)
     X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1]))
 
-    # Convert to PyTorch tensors
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     X_train = torch.Tensor(X_train).to(device)
     X_val = torch.Tensor(X_val).to(device)
@@ -147,22 +142,7 @@ def create_datasets(data, look_back, test_size, val_size):
 
     return X_train, Y_train, X_val, Y_val, X_test, Y_test, scalers, original_series_list, trend_list, seasonal_list, residual_list
 
-
-def train_model(model, train_loader, val_loader, num_epochs, learning_rate, patience=5):
-    """
-    Train the model with early stopping based on validation loss.
-
-    Args:
-        model (torch.nn.Module): The model to be trained.
-        train_loader (DataLoader): DataLoader for the training data.
-        val_loader (DataLoader): DataLoader for the validation data.
-        num_epochs (int): Number of epochs for training.
-        learning_rate (float): Learning rate for the optimizer.
-        patience (int): Number of epochs to wait for improvement before stopping.
-
-    Returns:
-        None
-    """
+def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss_function, patience=5):
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     best_val_loss = float('inf')
     epochs_without_improvement = 0
@@ -172,23 +152,24 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, pati
     for epoch in range(num_epochs):
         model.train()
         for batch_X, batch_Y in train_loader:
-            outputs = model(batch_X)
-            loss = smape_loss(batch_Y, outputs)
+            outputs = model(batch_X).view(-1)  # Ensure output tensor is flattened
+            batch_Y = batch_Y.view(-1)  # Ensure target tensor is flattened
+            loss = loss_function(outputs, batch_Y)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             pbar.update(1)
         
-        # Validation phase
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
             for val_X, val_Y in val_loader:
-                val_outputs = model(val_X)
-                val_loss += smape_loss(val_Y, val_outputs).item()
+                val_outputs = model(val_X).view(-1)  # Ensure output tensor is flattened
+                val_Y = val_Y.view(-1)  # Ensure target tensor is flattened
+                val_loss += loss_function(val_outputs, val_Y).item()
         val_loss /= len(val_loader)
         
-        print(f'Epoch [{epoch+1}/{num_epochs}], Training SMAPE: {loss.item():.4f}, Validation SMAPE: {val_loss:.4f}')
+        print(f'Epoch [{epoch+1}/{num_epochs}], Training MSE: {loss.item():.4f}, Validation MSE: {val_loss:.4f}')
         
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -202,80 +183,55 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, pati
     
     pbar.close()
 
-
-
-def evaluate_model(model, X_test, test_size):
-    """
-    Evaluate the model and make predictions.
-
-    Args:
-        model (torch.nn.Module): The trained model.
-        X_test (torch.Tensor): Test dataset.
-        test_size (int): The number of test datapoints.
-
-    Returns:
-        list: Predictions for each series in the test dataset.
-    """
+def evaluate_model(model, X_test, prediction_size):
     model.eval()
     predictions = []
 
     for i in range(X_test.shape[0]):
-        current_sequence = X_test[i:i+1, :]  # Ensure it maintains two dimensions
+        current_sequence = X_test[i:i+1, :]
         series_predictions = []
 
-        for _ in range(test_size):
+        for _ in range(prediction_size):
             with torch.no_grad():
                 next_point = model(current_sequence)
             
             series_predictions.append(next_point.item())
-            # Update the current sequence to include the new point
-            next_point = next_point.view(1, 1)  # Ensure it has the same dimensions as the current sequence
+            next_point = next_point.view(1, 1)
             current_sequence = torch.cat((current_sequence[:, 1:], next_point), dim=1)
         
         predictions.append(series_predictions)
 
     return predictions
 
-
-# Main script
 if __name__ == "__main__":
-    # Define the device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Load the data
     print('Loading data...')
     data = pd.read_csv(DATA_FILE)
 
-    # Create datasets
-    val_size = 12  # Define the size of the validation set
-    X_train, Y_train, X_val, Y_val, X_test, Y_test, scalers, original_series_list, trend_list, seasonal_list, residual_list = create_datasets(data, LOOK_BACK, TEST_SIZE, val_size)
+    X_train, Y_train, X_val, Y_val, X_test, Y_test, scalers, original_series_list, trend_list, seasonal_list, residual_list = create_datasets(data, LOOK_BACK, VALIDATION_SPLIT, TEST_SPLIT)
 
-    # Create DataLoaders
     train_dataset = TensorDataset(X_train, Y_train)
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     
     val_dataset = TensorDataset(X_val, Y_val)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    # Get the model
     print('Creating model...')
     input_size = LOOK_BACK
     output_size = 1
     model = ModelFactory.create_model(MODEL, input_size, HIDDEN_SIZE, output_size).to(device)
 
     if TRAIN_MODEL:
-        # Train the model
         print('Training model...')
-        train_model(model, train_loader, val_loader, NUM_EPOCHS, LEARNING_RATE, PATIENCE)
+        train_model(model, train_loader, val_loader, NUM_EPOCHS, LEARNING_RATE, LOSS_FUNCTION, PATIENCE)
     else:
-        # Load the model
         print('Loading saved model...')
         model.load_state_dict(torch.load(f'{MODEL}_model.pth'))
 
-    # Evaluate the model
     print('Evaluating model...')
-    predictions = evaluate_model(model, X_test, TEST_SIZE)
+    predictions = evaluate_model(model, X_test, PREDICTION_SIZE)
 
-    # Reconstruct and plot series
-    reconstructed_new_data = reconstruct_series(trend_list, seasonal_list, predictions, TEST_SIZE)
-    plot_actual_vs_predicted(original_series_list, reconstructed_new_data, TEST_SIZE)
+    reconstructed_new_data = reconstruct_series(trend_list, seasonal_list, predictions, PREDICTION_SIZE)
+    plot_prediction_errors(original_series_list, reconstructed_new_data, PREDICTION_SIZE)
+    #plot_actual_vs_predicted(original_series_list, reconstructed_new_data, PREDICTION_SIZE)
