@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 
-file_path = '~/Desktop/NeuralNetworks/NNProject/'
+file_path = '/Users/mathiasrandruut/neuralnetcode/NN-CourseProject-FinancialForecasting'
 file_name = 'M3C.xls'
 sheet = 'M3Month'
 

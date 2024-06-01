@@ -13,7 +13,7 @@ from util import *
 TEST_SIZE = 18                     # Set to 18 datapoints to be predicted
 LOOK_BACK = 12                     # Set to number of datapoints to be accounted for during prediciton
 MODEL = 'GRU'                      # Set to model to be used
-TRAIN_MODEL = False                 # Set to False to skip training and load the saved model
+TRAIN_MODEL = True                 # Set to False to skip training and load the saved model
 VERIFY_PREPROCESSING = False       # Set to False to skip preprocessing verification
 
 # Load the data
