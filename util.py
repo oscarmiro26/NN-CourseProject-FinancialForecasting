@@ -2,6 +2,7 @@ import time
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
 def detrend(ts, window=12):
@@ -10,14 +11,13 @@ def detrend(ts, window=12):
     return detrended.dropna()
 
 
-# Create the dataset with a look-back period
-def create_dataset(dataset, look_back=1):
+def create_dataset(data, look_back):
     X, Y = [], []
-    for i in range(len(dataset) - look_back - 1):
-        a = dataset[i:(i + look_back), 0]
-        X.append(a)
-        Y.append(dataset[i + look_back, 0])
+    for i in range(len(data) - look_back):
+        X.append(data[i:(i + look_back), 0])
+        Y.append(data[i + look_back, 0])
     return np.array(X), np.array(Y)
+
 
 
 def smape_loss(y_true, y_pred):
