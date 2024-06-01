@@ -2,7 +2,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.seasonal import seasonal_decompose
-
+import numpy as np
 
 def exponential_moving_average(prices, period, weighting_factor=0.5):
     ema = np.zeros(len(prices))
