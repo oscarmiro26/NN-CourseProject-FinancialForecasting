@@ -10,6 +10,10 @@ from data_preprocessing import prepare_data
 from models.model_factory import ModelFactory
 from util import create_dataset, smape_loss, reconstruct_series, plot_actual_vs_predicted, verify_preprocessing
 
+
+# train MLP created because MLPs expect input data to be in a flat 2D format WHILE
+# GRUs require input data to be structured as a 3D tensor representing sequences of observations, so it was easier to split the training scripts for me, even though there are shared parts
+
 # Configurations and Hyperparameters
 DATA_FILE = 'M3C_Monthly.csv'  # Path to the CSV file that contains the data
 TEST_SIZE = 18                 # Number of datapoints that we want to predict
@@ -20,8 +24,8 @@ VERIFY_PREPROCESSING = False   # Set to True to verify preprocessing steps
 BATCH_SIZE = 64                # Batch size for training- Larger batch sizes can make training faster and more stable, but may require more memory and might not always converge to the best solution.
 NUM_EPOCHS = 20                # Number of epochs for training Early Stopping: Use early stopping to determine the optimal number of epochs.
                                #Learning Curves: Plot learning curves to visualize how the model performance changes with epochs and decide if more epochs are needed.
-HIDDEN_SIZE = 50               # Number of hidden units - best to perform a search to optimize these
-LEARNING_RATE = 0.001          # Learning rate for the optimizer. Useful to start with a higher learning rate and gradually decrease it.
+HIDDEN_SIZE = 10               # Number of hidden units - best to perform a search to optimize these
+LEARNING_RATE = 0.0001          # Learning rate for the optimizer. Useful to start with a higher learning rate and gradually decrease it.
 
 
 def preprocess_data(data, window):
