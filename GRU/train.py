@@ -3,7 +3,13 @@ import os
 
 # Add the project root directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+base_path = os.path.dirname(os.path.abspath(__file__))
+# Define the path for saving and loading the model in the GRU directory
+gru_dir = os.path.join(base_path, '..', 'GRU')
 
+os.makedirs(gru_dir, exist_ok=True)
+
+MODEL_SAVE_PATH = os.path.join(gru_dir, 'gru_model.pth')
 
 import numpy as np
 import pandas as pd
@@ -125,11 +131,11 @@ if TRAIN_MODEL:
             print(f'Epoch [{epoch+1}/{num_epochs}], SMAPE: {loss.item():.4f}')
 
     # Save the model
-    torch.save(model.state_dict(), 'gru_model.pth')
+    torch.save(model.state_dict(), MODEL_SAVE_PATH)
 else:
     # Load the model
     print('Loading saved model...')
-    model.load_state_dict(torch.load(f'{MODEL}_model.pth'))
+    model.load_state_dict(torch.load(MODEL_SAVE_PATH))
 
 # Testing the model
 print('Evaluating model...')
