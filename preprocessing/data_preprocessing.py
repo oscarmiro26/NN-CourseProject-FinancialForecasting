@@ -1,9 +1,11 @@
-# flake8: noqa
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.seasonal import seasonal_decompose
 import numpy as np
 
+
+""""
 def exponential_moving_average(prices, period, weighting_factor=0.5):
     ema = np.zeros(len(prices))
     sma = np.mean(prices[:period])
@@ -23,32 +25,30 @@ def preprocess_data_ema(series, period, weighting_factor):
     # Remove the initial NaN values from EMA calculation
     detrended_series = detrended_series[period-1:]
 
-
     # Seasonal decomposition
     result = seasonal_decompose(detrended_series, model='additive', period=period)
     seasonal = result.seasonal
     residual = detrended_series - seasonal
 
     return series, ema, detrended_series, seasonal, residual
+"""
 
-
-
-def preprocess_data(series, window):
+def preprocess_data(series, span):
     series = series.dropna().astype(float)
 
-    # Compute the moving average (trend)
-    trend = series.rolling(window=window).mean() # try other methods - ash
+    # Compute the exponentially weighted moving average (EWMA) as the trend
+    trend = series.ewm(span=span, adjust=False).mean()
 
     # Subtract the trend from the original time-series
     detrended_series = series - trend
-    detrended_series.dropna(inplace=True)
 
     # Seasonal decomposition
-    result = seasonal_decompose(detrended_series, model='additive', period=window) # try other methods
+    result = seasonal_decompose(detrended_series, model='additive', period=span)
     seasonal = result.seasonal
     residual = detrended_series - seasonal
 
     return series, trend, detrended_series, seasonal, residual
+
 
 
 def prepare_data(data, window=12):

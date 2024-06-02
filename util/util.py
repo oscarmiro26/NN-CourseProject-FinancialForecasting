@@ -1,16 +1,23 @@
+
+
+"""
+Utility Functions
+
+This script contains various utility functions used for time series forecasting.
+These functions are designed to assist with data preparation, model evaluation,
+and result visualization. The utilities provided in this script include dataset
+creation, statistical loss functions, data normalization, and plotting functions.
+
+"""
+
 import time
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-
-def detrend(ts, window=12):
-    rolling_mean = ts.rolling(window=window).mean()
-    detrended = ts - rolling_mean
-    return detrended.dropna()
-
-
+# this file includes 
 def create_dataset(data, look_back):
     X, Y = [], []
     for i in range(len(data) - look_back):
@@ -26,6 +33,15 @@ def smape_loss(y_true, y_pred):
     diff[denominator == 0] = 0.0  # Avoid division by zero
     return torch.mean(diff) * 100
 
+def smape_tensors(y_true, y_pred):
+    y_true = torch.tensor(y_true.values) if isinstance(y_true, pd.Series) else torch.tensor(y_true)
+    y_pred = torch.tensor(y_pred.values) if isinstance(y_pred, pd.Series) else torch.tensor(y_pred)
+    
+    denominator = (torch.abs(y_true) + torch.abs(y_pred)) / 2.0
+    diff = torch.abs(y_true - y_pred) / denominator
+    diff[denominator == 0] = 0.0  # Avoid division by zero
+    return torch.mean(diff) * 100
+
 def verify_preprocessing(time_series, trend_list, seasonal_list, residual_list):
     for i in range(len(time_series)):
         original_series = time_series[i]
@@ -33,11 +49,23 @@ def verify_preprocessing(time_series, trend_list, seasonal_list, residual_list):
         seasonal = seasonal_list[i]
         residual = residual_list[i]
 
-        # Reconstruct the series
-        reconstructed_series = trend + seasonal + residual
+        # Print the lengths of the first sequence in each list
+        if i == 0:
+            print(f"Lengths of the first sequence in each list:")
+            print(f"Original Series Length: {len(original_series)}")
+            print(f"Trend Length: {len(trend)}")
+            print(f"Seasonal Length: {len(seasonal)}")
+            print(f"Residual Length: {len(residual)}")
+        
+        # Align all series to the shortest length
+        min_length = min(len(original_series), len(trend), len(seasonal), len(residual))
+        aligned_original_series = original_series.iloc[-min_length:]
+        aligned_trend = trend.iloc[-min_length:]
+        aligned_seasonal = seasonal.iloc[-min_length:]
+        aligned_residual = residual.iloc[-min_length:]
 
-        # Align the original series with the reconstructed series
-        aligned_original_series = original_series[original_series.index.isin(reconstructed_series.index)]
+        # Reconstruct the series
+        reconstructed_series = aligned_trend + aligned_seasonal + aligned_residual
 
         # Plot the original vs reconstructed series
         plt.figure(figsize=(12, 6))
@@ -71,6 +99,30 @@ def reconstruct_series(trend_list, seasonal_list, predicted_residuals, length):
     return reconstructed_series
 
 
+def denormalize_predictions(predictions, scalers):
+    denormalized_predictions = []
+    for pred, scaler in zip(predictions, scalers):
+        pred_array = np.array(pred).reshape(-1, 1)
+        denormalized_pred = scaler.inverse_transform(pred_array)
+        denormalized_predictions.append(denormalized_pred.flatten().tolist())
+    return denormalized_predictions
+
+
+def plot_predictions(actual_list, predicted_list, num_points):
+    for i, (actual, predicted) in enumerate(zip(actual_list, predicted_list)):
+        plt.figure(figsize=(10, 5))
+        actual_points = list(range(len(actual) - num_points, len(actual)))  # Generate the actual data point indices
+        plt.plot(actual_points, actual[-num_points:], label='Actual')
+        plt.plot(actual_points, predicted, label='Predicted')
+        plt.legend()
+        plt.title(f'Actual vs Predicted for Series {i+1} for last {num_points} points')
+        plt.xlabel('Data Point Index')
+        plt.ylabel('Value')
+        plt.xticks(actual_points)  # Ensure x-axis ticks are the actual data point indices
+        plt.xlim(min(actual_points), max(actual_points))  # Set x-axis limits to the range of actual data point indices
+        plt.show()
+
+
 def plot_actual_vs_predicted(original_series_list, reconstructed_new_data, length=18):
     num_series = len(original_series_list)
     for i in range(num_series):
@@ -94,6 +146,7 @@ def plot_actual_vs_predicted(original_series_list, reconstructed_new_data, lengt
         plt.ylabel('Value')
         plt.legend()
         plt.show()
+
 
 def plot_prediction_errors(original_series_list, reconstructed_new_data, length=18):
     """
@@ -132,3 +185,31 @@ def plot_prediction_errors(original_series_list, reconstructed_new_data, length=
     plt.legend()
     plt.show()
 
+def evaluate_predictions(actual_list, predicted_list):
+    mse_list = []
+    mae_list = []
+    r2_list = []
+    smape_list = []
+
+    for actual, predicted in zip(actual_list, predicted_list):
+        mse = mean_squared_error(actual, predicted)
+        mae = mean_absolute_error(actual, predicted)
+        r2 = r2_score(actual, predicted)
+        smape_value = smape_tensors(actual, predicted)
+        
+        mse_list.append(mse)
+        mae_list.append(mae)
+        r2_list.append(r2)
+        smape_list.append(smape_value)
+
+    avg_mse = np.mean(mse_list)
+    avg_mae = np.mean(mae_list)
+    avg_r2 = np.mean(r2_list)
+    avg_smape = np.mean(smape_list)
+
+    print(f"Mean MSE: {avg_mse:.4f}")
+    print(f"Mean MAE: {avg_mae:.4f}")
+    print(f"Mean R2: {avg_r2:.4f}")
+    print(f"Mean SMAPE: {avg_smape:.4f}")
+
+    return mse_list, mae_list, r2_list, smape_list

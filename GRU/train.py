@@ -1,3 +1,10 @@
+import sys
+import os
+
+# Add the project root directory to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
 import numpy as np
 import pandas as pd
 import torch
@@ -5,9 +12,19 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
-from data_preprocessing import prepare_data
+from preprocessing.data_preprocessing import prepare_data
 from models.model_factory import ModelFactory
-from util import *
+from util.util import *
+
+# Define the base path as the directory containing this configuration file
+base_path = os.path.dirname(os.path.abspath(__file__))
+
+# Define the path to the input_data directory relative to the base path
+input_data_path = os.path.join(base_path, '..', 'input_data')
+
+# Define the full path to the data file relative to the input_data directory
+DATA_FILE = os.path.join(input_data_path, 'M3C_Monthly_FINANCE.csv')
+
 
 # Configurations
 TEST_SIZE = 18                     # Set to 18 datapoints to be predicted
@@ -19,7 +36,7 @@ VERIFY_PREPROCESSING = False       # Set to False to skip preprocessing verifica
 # Load the data
 print('Loading data...')
 data_file = 'M3C_Monthly.csv'
-data = pd.read_csv(data_file)
+data = pd.read_csv(DATA_FILE)
 
 # Preprocess the data
 print('Preprocessing data...')
