@@ -25,6 +25,18 @@ def create_dataset(data, look_back):
         Y.append(data[i + look_back, 0])
     return np.array(X), np.array(Y)
 
+def smape(actual, predicted):
+    actual = np.array(actual)
+    predicted = np.array(predicted)
+    return 100 * np.mean(2 * np.abs(predicted - actual) / (np.abs(actual) + np.abs(predicted)))
+
+def calculate_median_smape(original_series, reconstructed_series, prediction_size):
+    smapes = []
+    for orig, recon in zip(original_series, reconstructed_series):
+        orig_overlap = orig[-prediction_size:]
+        recon_overlap = recon[:prediction_size]
+        smapes.append(smape(orig_overlap, recon_overlap))
+    return np.median(smapes)
 
 
 def smape_loss(y_true, y_pred):
@@ -122,6 +134,41 @@ def plot_predictions(actual_list, predicted_list, num_points):
         plt.xlim(min(actual_points), max(actual_points))  # Set x-axis limits to the range of actual data point indices
         plt.show()
 
+
+def plot_all_lists_after_preprocessing(original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list):
+    # Plotting the first time series as an example
+    plt.figure(figsize=(12, 6))
+    plt.plot(original_series_list[0], label='Original Time Series')
+    plt.plot(trend_list[0], label='Trend (Moving Average)', color='red')
+    plt.title('Time Series with Trend')
+    plt.xlabel('Time')
+    plt.ylabel('Value')
+    plt.legend()
+    plt.show()
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(detrended_series_list[0], label='Detrended Time Series', color='green')
+    plt.title('Detrended Time Series')
+    plt.xlabel('Time')
+    plt.ylabel('Value')
+    plt.legend()
+    plt.show()
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(seasonal_list[0], label='Seasonal Component', color='purple')
+    plt.title('Seasonal Component')
+    plt.xlabel('Time')
+    plt.ylabel('Value')
+    plt.legend()
+    plt.show()
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(residual_list[0], label='Deseasonalized (Residual) Time Series', color='orange')
+    plt.title('Deseasonalized (Residual) Time Series')
+    plt.xlabel('Time')
+    plt.ylabel('Value')
+    plt.legend()
+    plt.show()
 
 def plot_actual_vs_predicted(original_series_list, reconstructed_new_data, length=18):
     num_series = len(original_series_list)
