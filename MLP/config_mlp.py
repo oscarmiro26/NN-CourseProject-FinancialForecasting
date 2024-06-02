@@ -1,9 +1,10 @@
+
 import os
 import torch.nn as nn
 
 base_path = os.path.dirname(os.path.abspath(__file__))
 
-LOOK_BACK = 10                  # Number of past datapoints to consider for training at once
+LOOK_BACK = 5                  # Number of past datapoints to consider for training at once
 PREDICTED_DATA_POINTS = 1
 
 MODEL = 'MLP'                   # Model we use
@@ -13,9 +14,10 @@ LOSS_FUNCTION = nn.MSELoss()
 
 
 # Hyperparameters
-BATCH_SIZE = 60                 # Larger batch sizes can make training faster and more stable but may require more memory
-NUM_EPOCHS = 50                 # Number of epochs for training
-HIDDEN_SIZE = 5               # Number of hidden units
+BATCH_SIZE = 100                 # Larger batch sizes can make training faster and more stable but may require more memory
+NUM_EPOCHS = 200                 # Number of epochs for training
+HIDDEN_SIZE_1 = 4               # Number of hidden units
+HIDDEN_SIZE_2 = 2 
 LEARNING_RATE = 0.001          # Learning rate for the optimizer
 PATIENCE = 50                    # Number of epochs with no improvement before stopping
 

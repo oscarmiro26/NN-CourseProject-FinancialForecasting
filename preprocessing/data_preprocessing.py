@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from preprocessing.config_preprocessing import *
 from util.util import verify_preprocessing, create_dataset, plot_all_lists_after_preprocessing
-
+from sklearn.preprocessing import StandardScaler
 
 def preprocess_data(series, span):
     series = series.dropna().astype(float)
@@ -120,6 +120,40 @@ def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list
 
     return scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, scalers
 
+#normalization if we want to give more attention to outliers
+def normalize_data_outliers(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_eval):
+    print('  Normalizing data...')
+    scaled_train_residuals_list = []
+    scaled_val_residuals_list = []
+    scaled_test_residuals_list = []
+    scaled_all_residuals_list = [] 
+    scalers = []
+
+    for train_res, val_res, test_res, all_res in zip(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_eval):
+        train_res_np = train_res.values.reshape(-1, 1)
+        val_res_np = val_res.values.reshape(-1, 1)
+        test_res_np = test_res.values.reshape(-1, 1)
+        all_res_np = all_res.values.reshape(-1, 1)
+
+        scaler = StandardScaler()
+        
+        scaled_train_res = scaler.fit_transform(train_res_np)
+        scaled_val_res = scaler.transform(val_res_np)
+        scaled_test_res = scaler.transform(test_res_np)
+        scaled_all_res = scaler.transform(all_res_np)
+
+        scaled_train_residuals_list.append(scaled_train_res)
+        scaled_val_residuals_list.append(scaled_val_res)
+        scaled_test_residuals_list.append(scaled_test_res)
+        scaled_all_residuals_list.append(scaled_all_res)
+
+        scalers.append(scaler)
+
+    scaled_train_data = np.concatenate(scaled_train_residuals_list)
+    scaled_val_data = np.concatenate(scaled_val_residuals_list)
+    scaled_test_data = np.concatenate(scaled_test_residuals_list)
+
+    return scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, scalers
 
 
 def create_datasets(look_back):
@@ -149,7 +183,7 @@ def create_datasets(look_back):
     print("Length of test_residuals_list[0]:", len(test_residuals_list[0]))
     print("Length of eval_residuals_list[0]:", len(eval_residuals_list[0]))
 
-    # Normalize the data
+    # Normalize the data - change between normal or the one giving more attention to outliers
     scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_data, scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_eval)
 
     # Debug statements for normalization

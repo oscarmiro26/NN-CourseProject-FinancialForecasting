@@ -138,7 +138,7 @@ def main():
     # input_size and output_size are set based on the problem requirements
     print('Creating model...')
    
-    model = ModelFactory.create_model(MODEL, LOOK_BACK, HIDDEN_SIZE, PREDICTED_DATA_POINTS).to(device)
+    model = ModelFactory.create_model(MODEL, LOOK_BACK, HIDDEN_SIZE_1, HIDDEN_SIZE_2, PREDICTED_DATA_POINTS).to(device)
 
     # start the training process
     start_to_train_model(model, train_loader, val_loader)

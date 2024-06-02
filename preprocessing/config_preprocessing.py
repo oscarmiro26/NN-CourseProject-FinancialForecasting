@@ -20,5 +20,5 @@ VERIFY_PREPROCESSING = False
 
 # Configuration parameters
 VALIDATION_SPLIT = 0.2          # Percentage of data to be used for validation
-TEST_SPLIT = 0.01                # Percentage of data to be used for testing
+TEST_SPLIT = 0.1                # Percentage of data to be used for testing
 EVAL_PREDICTION_SIZE = 18       # Number of future datapoints to predict and hold out for evaluation
