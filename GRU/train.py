@@ -41,7 +41,7 @@ VERIFY_PREPROCESSING = False       # Set to False to skip preprocessing verifica
 
 # Load the data
 print('Loading data...')
-data_file = 'M3C_Monthly.csv'
+data_file = 'M3C_Monthly_FINANCE.csv'
 data = pd.read_csv(DATA_FILE)
 
 # Preprocess the data
@@ -147,7 +147,7 @@ predictions = []
 # Iterate over each test sequence
 for i in range(X_test.shape[0]):
     # Take the initial sequence for rolling prediction
-    current_sequence = X_test[i:i+1, :, :]  # Ensure it maintains three dimensions
+    current_sequence = X_test[i:i+1, :, :]  # ‹- THIS IS THE TEST SET CONSISTING BASED ON THE 18 POINTS
     
     # Store predictions for current series
     series_predictions = []
@@ -156,7 +156,7 @@ for i in range(X_test.shape[0]):
         # Make prediction for the next step
         with torch.no_grad():
             next_point = model(current_sequence)
-            print(next_point)
+            #print(next_point)
         
         # Append the predicted point to the series predictions
         series_predictions.append(next_point.item())
@@ -167,5 +167,9 @@ for i in range(X_test.shape[0]):
     # Collect all predictions from current series
     predictions.append(series_predictions)
 
+mse_list, mae_list, r2_list, smape_list = evaluate_predictions(eval_residuals_list, denormalized_predictions)
+
 reconstructed_new_data = reconstruct_series(trend_list, seasonal_list, predictions, test_size)
+print(calculate_median_smape(original_series_list, reconstructed_new_data, TEST_SIZE))
+
 plot_actual_vs_predicted(original_series_list, reconstructed_new_data, test_size)

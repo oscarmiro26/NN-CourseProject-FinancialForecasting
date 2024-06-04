@@ -60,12 +60,18 @@ def start_preprocess_data(data, window):
 
     return original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list
 
+
+
+
 def split_data(residual_list, val_split, test_split, eval_size):
     print('  Creating data splits...')
+    
     # Hold out the last `eval_size` values from each series in residual_list for final evaluation
+    # These values will be completely unseen during training and validation, providing an unbiased final test list.
     eval_residuals_list = [res[-eval_size:] for res in residual_list]
     
-    # The remaining data after holding out the evaluation set (we remove the last 18)
+    # The remaining data after holding out the evaluation set (we remove the last `eval_size` points)
+    # This data will be used for creating the training, validation, and test sets.
     all_residuals_except_eval = [res[:-eval_size] for res in residual_list]
 
     # Calculate the size of the validation set based on the percentage provided (val_split)
@@ -75,17 +81,23 @@ def split_data(residual_list, val_split, test_split, eval_size):
     test_size = int(len(all_residuals_except_eval[0]) * test_split)
 
     # Split the remaining data into training set
+    # The training set is used to train the model.
     train_residuals_list = [res[:-test_size-val_size] for res in all_residuals_except_eval]
 
     # Split the remaining data into validation set
+    # The validation set is used to tune hyperparameters and to avoid overfitting.
     val_residuals_list = [res[-test_size-val_size:-test_size] for res in all_residuals_except_eval]
 
     # Split the remaining data into test set
+    # The test set is used to evaluate the model across the whole time series during development.
     test_residuals_list = [res[-test_size:] for res in all_residuals_except_eval]
     
     return train_residuals_list, val_residuals_list, test_residuals_list, eval_residuals_list, all_residuals_except_eval
 
 
+
+
+#min max scaler normalization
 def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_eval):
     print('  Normalizing data...')
     scaled_train_residuals_list = []
@@ -120,7 +132,8 @@ def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list
 
     return scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, scalers
 
-#normalization if we want to give more attention to outliers
+
+#normalization if we want to give more attention to outliers and peaks. scaling data to have a mean of 0 and a standard deviation of 1.
 def normalize_data_outliers(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_eval):
     print('  Normalizing data...')
     scaled_train_residuals_list = []
