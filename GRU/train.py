@@ -34,7 +34,7 @@ DATA_FILE = os.path.join(input_data_path, 'M3C_Monthly_FINANCE.csv')
 
 # Configurations
 TEST_SIZE = 18                     # Set to 18 datapoints to be predicted
-LOOK_BACK = 12                     # Set to number of datapoints to be accounted for during prediciton
+LOOK_BACK = 12                     # Set to number of datapoints to be accounted for during prediction
 MODEL = 'GRU'                      # Set to model to be used
 TRAIN_MODEL = True                 # Set to False to skip training and load the saved model
 VERIFY_PREPROCESSING = False       # Set to False to skip preprocessing verification
@@ -141,13 +141,24 @@ else:
 print('Evaluating model...')
 model.eval()
 
-# Assuming X_test contains the initial sequences for each series you want to forecast
+# Use the last LOOK_BACK points from the training set for each series for rolling prediction
+initial_sequences = []
+
+for series in scaled_train_residuals_list:
+    initial_sequence = series[-look_back:]  # Last LOOK_BACK points
+    initial_sequences.append(initial_sequence)
+
+# Convert initial sequences to PyTorch tensors
+initial_sequences = np.array(initial_sequences)
+initial_sequences = np.reshape(initial_sequences, (initial_sequences.shape[0], initial_sequences.shape[1], 1))
+initial_sequences = torch.Tensor(initial_sequences).to(device)
+
 predictions = []
 
-# Iterate over each test sequence
-for i in range(X_test.shape[0]):
+# Iterate over each initial sequence
+for i in range(initial_sequences.shape[0]):
     # Take the initial sequence for rolling prediction
-    current_sequence = X_test[i:i+1, :, :]  # ‹- THIS IS THE TEST SET CONSISTING BASED ON THE 18 POINTS
+    current_sequence = initial_sequences[i:i+1, :, :]  # Shape: (1, LOOK_BACK, 1)
     
     # Store predictions for current series
     series_predictions = []
@@ -156,20 +167,29 @@ for i in range(X_test.shape[0]):
         # Make prediction for the next step
         with torch.no_grad():
             next_point = model(current_sequence)
-            #print(next_point)
         
         # Append the predicted point to the series predictions
         series_predictions.append(next_point.item())
         
         # Update the current sequence to include the new point
-        current_sequence = torch.cat((current_sequence[:, 1:, :], next_point.unsqueeze(0)), dim=1)
+        next_point = next_point.view(1, 1, 1)  # Ensure next_point has the shape (1, 1, 1)
+        current_sequence = torch.cat((current_sequence[:, 1:, :], next_point), dim=1)
     
     # Collect all predictions from current series
     predictions.append(series_predictions)
 
-mse_list, mae_list, r2_list, smape_list = evaluate_predictions(eval_residuals_list, denormalized_predictions)
+# Denormalize the predictions
+denormalized_predictions = []
 
-reconstructed_new_data = reconstruct_series(trend_list, seasonal_list, predictions, test_size)
+for scaler, prediction in zip(scalers, predictions):
+    denormalized_prediction = scaler.inverse_transform(np.array(prediction).reshape(-1, 1))
+    denormalized_predictions.append(denormalized_prediction)
+
+# Evaluate predictions
+mse_list, mae_list, r2_list, smape_list = evaluate_predictions(test_residuals_list, denormalized_predictions)
+
+# Reconstruct series and plot
+reconstructed_new_data = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, test_size)
 print(calculate_median_smape(original_series_list, reconstructed_new_data, TEST_SIZE))
 
 plot_actual_vs_predicted(original_series_list, reconstructed_new_data, test_size)

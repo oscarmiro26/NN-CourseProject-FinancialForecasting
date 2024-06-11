@@ -103,6 +103,8 @@ def generate_predictions(model, scaled_all_data, look_back, prediction_size, dev
     return all_predictions  # Return the list of all predictions for all sequences
 
 
+
+
 def create_dataloaders(X_train, Y_train, X_val, Y_val, X_test, Y_test):
      # Create data loaders for training, validation, and test sets
     # DataLoader helps manage batches of data efficiently during training and evaluation
@@ -110,6 +112,8 @@ def create_dataloaders(X_train, Y_train, X_val, Y_val, X_test, Y_test):
     val_loader = DataLoader(TensorDataset(X_val, Y_val), batch_size=BATCH_SIZE, shuffle=False)
     test_loader = DataLoader(TensorDataset(X_test, Y_test), batch_size=BATCH_SIZE, shuffle=False)
     return train_loader, val_loader, test_loader
+
+
 
 
 def start_to_train_model(model, train_loader, val_loader):
@@ -121,6 +125,8 @@ def start_to_train_model(model, train_loader, val_loader):
         # Load the pre-trained model weights
         print('Loading saved model...')
         model.load_state_dict(torch.load(MODEL_SAVE_PATH))
+
+
 
 
 def main():
@@ -154,7 +160,7 @@ def main():
     # Evaluate the model's predictions against the actual data of the last 18 points
     print('Evaluating predicted vs actual residual predictions...')
     mse_list, mae_list, r2_list, smape_list = evaluate_predictions(eval_residuals_list, denormalized_predictions)
-
+    
     # Plot the predictions against the actual data to visualize performance
     print('Plotting residual predictions vs actual...')
     #plot_predictions(eval_residuals_list, denormalized_predictions, EVAL_PREDICTION_SIZE)
