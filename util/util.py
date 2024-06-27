@@ -261,19 +261,13 @@ def evaluate_predictions(actual_list, predicted_list):
 
     return mse_list, mae_list, r2_list, smape_list
 
-def plot_predictions_naive(true_residuals, model_predictions, prediction_size, naive_predictions=None):
-    num_plots = len(true_residuals)
-    plt.figure(figsize=(15, 5 * num_plots))
-    
-    for i in range(num_plots):
-        plt.subplot(num_plots, 1, i + 1)
-        plt.plot(range(len(true_residuals[i])), true_residuals[i], label="True Residuals")
-        plt.plot(range(len(true_residuals[i]), len(true_residuals[i]) + prediction_size), model_predictions[i], label="Model Predictions")
-        if naive_predictions:
-            plt.plot(range(len(true_residuals[i]), len(true_residuals[i]) + prediction_size), naive_predictions[i], label="Naive Predictions", linestyle='dashed')
-        plt.legend()
-        plt.title(f'Sequence {i+1}')
-    
-    plt.tight_layout()
+def plot_predictions_naive(true_residuals, model_predictions, naive_predictions, title):
+    plt.figure(figsize=(16, 6))
+    plt.plot(true_residuals, label='True Values', color='blue')
+    plt.plot(model_predictions, label='Predicted Values', color='orange')
+    plt.plot(naive_predictions, label='Naive Values', color='green')
+    plt.legend()
+    plt.title(title)
+    plt.xlabel('Time')
+    plt.ylabel('Value')
     plt.show()
-
