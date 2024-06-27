@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from preprocessing.data_preprocessing import *
 from models.model_factory import ModelFactory
-from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape
+from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape, naive_predictor
 from config_mlp import *
 
 
@@ -105,16 +105,6 @@ def generate_predictions(model, scaled_all_data, look_back, prediction_size, dev
 
 
 
-def create_dataloaders(X_train, Y_train, X_val, Y_val, X_test, Y_test):
-     # Create data loaders for training, validation, and test sets
-    # DataLoader helps manage batches of data efficiently during training and evaluation
-    train_loader = DataLoader(TensorDataset(X_train, Y_train), batch_size=BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(TensorDataset(X_val, Y_val), batch_size=BATCH_SIZE, shuffle=False)
-    test_loader = DataLoader(TensorDataset(X_test, Y_test), batch_size=BATCH_SIZE, shuffle=False)
-    return train_loader, val_loader, test_loader
-
-
-
 
 def start_to_train_model(model, train_loader, val_loader):
     # Train the model if the TRAIN_MODEL flag is set to True
@@ -128,51 +118,69 @@ def start_to_train_model(model, train_loader, val_loader):
 
 
 
+def create_dataloaders(X_train, Y_train, X_val, Y_val):
+     # Create data loaders for training and validation sets
+    train_loader = DataLoader(TensorDataset(X_train, Y_train), batch_size=BATCH_SIZE, shuffle=True)
+    val_loader = DataLoader(TensorDataset(X_val, Y_val), batch_size=BATCH_SIZE, shuffle=False)
+    return train_loader, val_loader
+
 
 def main():
-    # Determine if CUDA (GPU) is available; if not, use the CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Preprocess the data and create training, validation, and test datasets
     print('Creating datasets...')
-    X_train, Y_train, X_val, Y_val, X_test, Y_test, scalers, trend_list, seasonal_list, eval_residuals_list, scaled_all_data, original_series = create_datasets(LOOK_BACK)
+    datasets = create_datasets(LOOK_BACK)
+    X_train, Y_train, X_val, Y_val, X_test, Y_test, scalers, trend_list, seasonal_list, test_residuals_list, scaled_all_data, original_series, residual_list = datasets
     
-    train_loader, val_loader, test_loader = create_dataloaders(X_train, Y_train, X_val, Y_val, X_test, Y_test)
+    train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
    
-    # Initialize the model
-    # The ModelFactory class abstracts the creation of different models
-    # input_size and output_size are set based on the problem requirements
     print('Creating model...')
-   
-    model = ModelFactory.create_model(MODEL, LOOK_BACK, HIDDEN_SIZE_1, HIDDEN_SIZE_2, PREDICTED_DATA_POINTS).to(device)
+    model = ModelFactory.create_model('MLP', LOOK_BACK, HIDDEN_SIZE_1, HIDDEN_SIZE_2, PREDICTED_DATA_POINTS).to(device)
 
-    # start the training process
     start_to_train_model(model, train_loader, val_loader)
 
-    # Generate predictions for future data points using the trained model
     print('Generating predictions...')
-    predictions = generate_predictions(model, scaled_all_data, LOOK_BACK, EVAL_PREDICTION_SIZE, device)
+    predictions = generate_predictions(model, scaled_all_data, LOOK_BACK, PREDICTION_SIZE, device)
 
-    # Denormalize the predictions to convert them back to the original scale
     print('Denormalizing predictions...')
     denormalized_predictions = denormalize_predictions(predictions, scalers)
 
-    # Evaluate the model's predictions against the actual data of the last 18 points
+    print('Generating naive predictions...')
+    naive_preds = naive_predictor(residual_list, PREDICTION_SIZE)
+
     print('Evaluating predicted vs actual residual predictions...')
-    mse_list, mae_list, r2_list, smape_list = evaluate_predictions(eval_residuals_list, denormalized_predictions)
     
-    # Plot the predictions against the actual data to visualize performance
+    eval_metrics = evaluate_predictions(test_residuals_list, denormalized_predictions, naive_preds)
+
+    # Print evaluation metrics for MLP
+    mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list = eval_metrics["mlp"]
+    print("MLP Predictions:")
+    print(f"Mean MSE: {np.mean(mlp_mse_list):.4f}")
+    print(f"Mean MAE: {np.mean(mlp_mae_list):.4f}")
+    print(f"Mean R2: {np.mean(mlp_r2_list):.4f}")
+    print(f"Mean SMAPE: {np.mean(mlp_smape_list):.4f}")
+
+    # Print evaluation metrics for Naive
+    naive_mse_list, naive_mae_list, naive_r2_list, naive_smape_list = eval_metrics["naive"]
+    print("Naive Predictions:")
+    print(f"Mean MSE: {np.mean(naive_mse_list):.4f}")
+    print(f"Mean MAE: {np.mean(naive_mae_list):.4f}")
+    print(f"Mean R2: {np.mean(naive_r2_list):.4f}")
+    print(f"Mean SMAPE: {np.mean(naive_smape_list):.4f}")
+
+
+
     print('Plotting residual predictions vs actual...')
-    #plot_predictions(eval_residuals_list, denormalized_predictions, EVAL_PREDICTION_SIZE)
+    #plot_predictions(residual_list, denormalized_predictions, naive_preds, PREDICTION_SIZE, extra_context_points=30)
 
-    # reconstructing the series
-    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, EVAL_PREDICTION_SIZE)
-
-    #plot_actual_vs_predicted(original_series, reconstructed_series, EVAL_PREDICTION_SIZE)
+    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
     
     print("Final SMAPE score:")
-    print(calculate_median_smape(original_series, reconstructed_series, EVAL_PREDICTION_SIZE))
+    print(calculate_median_smape(original_series, reconstructed_series, PREDICTION_SIZE))
 
 
 if __name__ == "__main__":
     main()
+
+

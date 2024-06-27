@@ -120,19 +120,66 @@ def denormalize_predictions(predictions, scalers):
     return denormalized_predictions
 
 
-def plot_predictions(actual_list, predicted_list, num_points):
-    for i, (actual, predicted) in enumerate(zip(actual_list, predicted_list)):
+def plot_predictions(actual_full_list, predicted_list, naive_predictions, num_points, extra_context_points=30):
+    for i, (actual_full, predicted, naive_pred) in enumerate(zip(actual_full_list, predicted_list, naive_predictions)):
+        if len(actual_full) < num_points + extra_context_points:
+            print(f"Skipping series {i+1} due to insufficient data points.")
+            continue
+
         plt.figure(figsize=(10, 5))
-        actual_points = list(range(len(actual) - num_points, len(actual)))  # Generate the actual data point indices
-        plt.plot(actual_points, actual[-num_points:], label='Actual')
-        plt.plot(actual_points, predicted, label='Predicted')
+
+        # Define the range for the actual values and the prediction period
+        actual_range = list(range(len(actual_full) - num_points - extra_context_points, len(actual_full)))
+        prediction_start = len(actual_full) - num_points - 1
+        prediction_range = list(range(prediction_start, prediction_start + num_points + 1))
+
+        # Get the y-value at the prediction start point
+        y_value_at_red_line = actual_full.iloc[prediction_start]
+        print(f"Series {i+1}: Y value at red line: {y_value_at_red_line}")
+
+        # Print the values being plotted for debugging
+        actual_values_for_plot = actual_full.iloc[-num_points - extra_context_points:].values
+        print(f"Series {i+1}: Actual values for plotting: {actual_values_for_plot}")
+        print(f"Series {i+1}: Naive predictions: {naive_pred}")
+        print(f"Series {i+1}: Model predictions: {predicted}")
+
+        # Plot the actual values for the last points including extra context points
+        plt.plot(actual_range, actual_values_for_plot, label='Actual', color='blue')
+
+        # Adjust predictions to start from the last known actual residual
+        model_pred_values = [y_value_at_red_line] + predicted
+        naive_pred_values = [y_value_at_red_line] + naive_pred
+
+        # Plot the model predictions
+        plt.plot(prediction_range, model_pred_values, label='Model Predicted', linestyle='--', color='orange')
+
+        # Plot the naive predictions directly
+        plt.plot(prediction_range, naive_pred_values, label='Naive Predicted', linestyle='--', color='green')
+
+        # Add a vertical red line to indicate the start of the prediction
+        plt.axvline(x=prediction_start, color='red', linestyle='--', label='Prediction Start')
+
         plt.legend()
         plt.title(f'Actual vs Predicted for Series {i+1} for last {num_points} points')
         plt.xlabel('Data Point Index')
         plt.ylabel('Value')
-        plt.xticks(actual_points)  # Ensure x-axis ticks are the actual data point indices
-        plt.xlim(min(actual_points), max(actual_points))  # Set x-axis limits to the range of actual data point indices
+        plt.xticks(actual_range)  # Ensure x-axis ticks are the actual data point indices
+        plt.xlim(min(actual_range), max(actual_range))  # Set x-axis limits to the range of actual data point indices
         plt.show()
+
+
+def naive_predictor(actual_residuals, prediction_size):
+    naive_predictions = []
+    for residuals in actual_residuals:
+        # Use the value at the prediction start point (19th point from the end)
+        if len(residuals) > prediction_size:
+            last_value = residuals.iloc[-prediction_size - 1]
+        else:
+            last_value = residuals.iloc[-1]  # Fallback to the last point if not enough points
+        naive_predictions.append([last_value] * prediction_size)
+    return naive_predictions
+
+
 
 
 def plot_all_lists_after_preprocessing(original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list):
@@ -232,31 +279,41 @@ def plot_prediction_errors(original_series_list, reconstructed_new_data, length=
     plt.legend()
     plt.show()
 
-def evaluate_predictions(actual_list, predicted_list):
-    mse_list = []
-    mae_list = []
-    r2_list = []
-    smape_list = []
+def evaluate_predictions(actual_list, mlp_predicted_list, naive_predicted_list):
+    mlp_mse_list = []
+    mlp_mae_list = []
+    mlp_r2_list = []
+    mlp_smape_list = []
 
-    for actual, predicted in zip(actual_list, predicted_list):
-        mse = mean_squared_error(actual, predicted)
-        mae = mean_absolute_error(actual, predicted)
-        r2 = r2_score(actual, predicted)
-        smape_value = smape_tensors(actual, predicted)
+    naive_mse_list = []
+    naive_mae_list = []
+    naive_r2_list = []
+    naive_smape_list = []
+
+    for actual, mlp_pred, naive_pred in zip(actual_list, mlp_predicted_list, naive_predicted_list):
+        # Evaluate MLP predictions
+        mlp_mse = mean_squared_error(actual, mlp_pred)
+        mlp_mae = mean_absolute_error(actual, mlp_pred)
+        mlp_r2 = r2_score(actual, mlp_pred)
+        mlp_smape = smape_tensors(actual, mlp_pred)
         
-        mse_list.append(mse)
-        mae_list.append(mae)
-        r2_list.append(r2)
-        smape_list.append(smape_value)
+        mlp_mse_list.append(mlp_mse)
+        mlp_mae_list.append(mlp_mae)
+        mlp_r2_list.append(mlp_r2)
+        mlp_smape_list.append(mlp_smape)
 
-    avg_mse = np.mean(mse_list)
-    avg_mae = np.mean(mae_list)
-    avg_r2 = np.mean(r2_list)
-    avg_smape = np.mean(smape_list)
+        # Evaluate naive predictions
+        naive_mse = mean_squared_error(actual, naive_pred)
+        naive_mae = mean_absolute_error(actual, naive_pred)
+        naive_r2 = r2_score(actual, naive_pred)
+        naive_smape = smape_tensors(actual, naive_pred)
+        
+        naive_mse_list.append(naive_mse)
+        naive_mae_list.append(naive_mae)
+        naive_r2_list.append(naive_r2)
+        naive_smape_list.append(naive_smape)
 
-    print(f"Mean MSE: {avg_mse:.4f}")
-    print(f"Mean MAE: {avg_mae:.4f}")
-    print(f"Mean R2: {avg_r2:.4f}")
-    print(f"Mean SMAPE: {avg_smape:.4f}")
-
-    return mse_list, mae_list, r2_list, smape_list
+    return {
+        "mlp": (mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list),
+        "naive": (naive_mse_list, naive_mae_list, naive_r2_list, naive_smape_list)
+    }

@@ -2,9 +2,10 @@
 import os
 import torch.nn as nn
 
+from util.util import smape_loss
 base_path = os.path.dirname(os.path.abspath(__file__))
 
-LOOK_BACK = 5                  # Number of past datapoints to consider for training at once
+LOOK_BACK = 12                  # Number of past datapoints to consider for training at once
 PREDICTED_DATA_POINTS = 1
 
 MODEL = 'MLP'                   # Model we use
@@ -12,14 +13,13 @@ MODEL = 'MLP'                   # Model we use
 # Define loss function as a parameter
 LOSS_FUNCTION = nn.MSELoss()
 
-
 # Hyperparameters
-BATCH_SIZE = 100                 # Larger batch sizes can make training faster and more stable but may require more memory
-NUM_EPOCHS = 200                 # Number of epochs for training
-HIDDEN_SIZE_1 = 4               # Number of hidden units
-HIDDEN_SIZE_2 = 2 
-LEARNING_RATE = 0.001          # Learning rate for the optimizer
-PATIENCE = 50                    # Number of epochs with no improvement before stopping
+BATCH_SIZE = 64                 # Larger batch sizes can make training faster and more stable but may require more memory
+NUM_EPOCHS = 200                # Number of epochs for training
+HIDDEN_SIZE_1 = 25                # Number of hidden units (only one hidden layer now)
+HIDDEN_SIZE_2 = 5
+LEARNING_RATE = 0.001           # Learning rate for the optimizer
+PATIENCE = 20                   # Number of epochs with no improvement before stopping
 
 # Grid search parameters
 GRID_SEARCH_PARAMS = {
@@ -29,10 +29,10 @@ GRID_SEARCH_PARAMS = {
 }
 
 # Define the path for saving and loading the model in the MLP directory
+import os
+base_path = os.path.dirname(os.path.abspath(__file__))
 mlp_dir = os.path.join(base_path, '..', 'MLP')
-
 os.makedirs(mlp_dir, exist_ok=True)
-
 MODEL_SAVE_PATH = os.path.join(mlp_dir, 'mlp_model.pth')
 
 TRAIN_MODEL = True

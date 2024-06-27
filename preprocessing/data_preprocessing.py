@@ -63,42 +63,32 @@ def start_preprocess_data(data, window):
 
 
 
-def split_data(residual_list, val_split, test_split, eval_size):
+def split_data(residual_list, val_split, eval_size):
     print('  Creating data splits...')
     
     # Hold out the last `eval_size` values from each series in residual_list for final evaluation
     # These values will be completely unseen during training and validation, providing an unbiased final test list.
-    eval_residuals_list = [res[-eval_size:] for res in residual_list]
+    test_residuals_list = [res[-eval_size:] for res in residual_list]
     
     # The remaining data after holding out the evaluation set (we remove the last `eval_size` points)
-    # This data will be used for creating the training, validation, and test sets.
-    all_residuals_except_eval = [res[:-eval_size] for res in residual_list]
+    # This data will be used for creating the training and validation sets.
+    all_residuals_except_test = [res[:-eval_size] for res in residual_list]
 
     # Calculate the size of the validation set based on the percentage provided (val_split)
-    val_size = int(len(all_residuals_except_eval[0]) * val_split)
-
-    # Calculate the size of the test set based on the percentage provided (test_split)
-    test_size = int(len(all_residuals_except_eval[0]) * test_split)
+    val_size = int(len(all_residuals_except_test[0]) * val_split)
 
     # Split the remaining data into training set
     # The training set is used to train the model.
-    train_residuals_list = [res[:-test_size-val_size] for res in all_residuals_except_eval]
+    train_residuals_list = [res[:-val_size] for res in all_residuals_except_test]
 
     # Split the remaining data into validation set
     # The validation set is used to tune hyperparameters and to avoid overfitting.
-    val_residuals_list = [res[-test_size-val_size:-test_size] for res in all_residuals_except_eval]
-
-    # Split the remaining data into test set
-    # The test set is used to evaluate the model across the whole time series during development.
-    test_residuals_list = [res[-test_size:] for res in all_residuals_except_eval]
+    val_residuals_list = [res[-val_size:] for res in all_residuals_except_test]
     
-    return train_residuals_list, val_residuals_list, test_residuals_list, eval_residuals_list, all_residuals_except_eval
+    return train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test
 
-
-
-
-#min max scaler normalization
-def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_eval):
+# Modify the normalize_data functions accordingly
+def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test):
     print('  Normalizing data...')
     scaled_train_residuals_list = []
     scaled_val_residuals_list = []
@@ -106,7 +96,7 @@ def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list
     scaled_all_residuals_list = [] 
     scalers = []
 
-    for train_res, val_res, test_res, all_res in zip(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_eval):
+    for train_res, val_res, test_res, all_res in zip(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test):
         train_res_np = train_res.values.reshape(-1, 1)
         val_res_np = val_res.values.reshape(-1, 1)
         test_res_np = test_res.values.reshape(-1, 1)
@@ -131,6 +121,7 @@ def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list
     scaled_test_data = np.concatenate(scaled_test_residuals_list)
 
     return scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, scalers
+
 
 
 #normalization if we want to give more attention to outliers and peaks. scaling data to have a mean of 0 and a standard deviation of 1.
@@ -188,16 +179,15 @@ def create_datasets(look_back):
         break  # Only print the first series lengths
 
     # Split the data
-    train_residuals_list, val_residuals_list, test_residuals_list, eval_residuals_list, all_residuals_except_eval = split_data(residual_list, VALIDATION_SPLIT, TEST_SPLIT, EVAL_PREDICTION_SIZE)
+    train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test = split_data(residual_list, VALIDATION_SPLIT, PREDICTION_SIZE)
     
     # Debug statements for data splitting
     print("Length of train_residuals_list[0]:", len(train_residuals_list[0]))
     print("Length of val_residuals_list[0]:", len(val_residuals_list[0]))
     print("Length of test_residuals_list[0]:", len(test_residuals_list[0]))
-    print("Length of eval_residuals_list[0]:", len(eval_residuals_list[0]))
 
     # Normalize the data - change between normal or the one giving more attention to outliers
-    scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_data, scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_eval)
+    scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_data, scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test)
 
     # Debug statements for normalization
     print("Length of scaled_train_data:", len(scaled_train_data))
@@ -225,7 +215,22 @@ def create_datasets(look_back):
     Y_val = torch.Tensor(Y_val).to(device)
     Y_test = torch.Tensor(Y_test).to(device)
 
-    return X_train, Y_train, X_val, Y_val, X_test, Y_test, scalers, trend_list, seasonal_list, eval_residuals_list, scaled_all_data, original_series_list
+    # Return the created datasets and additional information
+    return (
+        X_train,       # Training features
+        Y_train,       # Training targets
+        X_val,         # Validation features
+        Y_val,         # Validation targets
+        X_test,        # Test features
+        Y_test,        # Test targets
+        scalers,       # Scalers used for normalization
+        trend_list,    # List of trend components for each series
+        seasonal_list, # List of seasonal components for each series
+        test_residuals_list, # List of residuals used for testing
+        scaled_all_data,     # Scaled data for all series
+        original_series_list,# Original series for all data
+        residual_list  # Full residual list for all series
+    )
 
 
 def main():

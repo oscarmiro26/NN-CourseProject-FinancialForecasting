@@ -46,7 +46,7 @@ data = pd.read_csv(DATA_FILE)
 
 # Preprocess the data
 print('Preprocessing data...')
-window = 12
+window = 20
 original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list = prepare_data(data, window)
 
 if VERIFY_PREPROCESSING:

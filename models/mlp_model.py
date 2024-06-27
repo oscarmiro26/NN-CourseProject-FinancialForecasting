@@ -27,5 +27,3 @@ class MLPModel(nn.Module):
 # Function to create and return the model
 def get_mlp_model(input_size, hidden_size1, hidden_size2, output_size):
     return MLPModel(input_size, hidden_size1, hidden_size2, output_size)
-
-
