@@ -11,15 +11,15 @@ PREDICTED_DATA_POINTS = 1
 MODEL = 'MLP'                   # Model we use
 
 # Define loss function as a parameter
-LOSS_FUNCTION = nn.MSELoss()
+LOSS_FUNCTION = smape_loss
 
 # Hyperparameters
 BATCH_SIZE = 64                 # Larger batch sizes can make training faster and more stable but may require more memory
 NUM_EPOCHS = 200                # Number of epochs for training
-HIDDEN_SIZE_1 = 25                # Number of hidden units (only one hidden layer now)
-HIDDEN_SIZE_2 = 5
+HIDDEN_SIZE_1 = 5                # Number of hidden units (only one hidden layer now)
+HIDDEN_SIZE_2 = 2
 LEARNING_RATE = 0.001           # Learning rate for the optimizer
-PATIENCE = 20                   # Number of epochs with no improvement before stopping
+PATIENCE = 30                   # Number of epochs with no improvement before stopping
 
 # Grid search parameters
 GRID_SEARCH_PARAMS = {
@@ -35,5 +35,5 @@ mlp_dir = os.path.join(base_path, '..', 'MLP')
 os.makedirs(mlp_dir, exist_ok=True)
 MODEL_SAVE_PATH = os.path.join(mlp_dir, 'mlp_model.pth')
 
-TRAIN_MODEL = False
+TRAIN_MODEL = True
 VERIFY_PREPROCESSING = False

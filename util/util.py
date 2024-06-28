@@ -167,17 +167,16 @@ def plot_predictions(actual_full_list, predicted_list, naive_predictions, num_po
         plt.xlim(min(actual_range), max(actual_range))  # Set x-axis limits to the range of actual data point indices
         plt.show()
 
-
 def naive_predictor(actual_residuals, prediction_size):
     naive_predictions = []
     for residuals in actual_residuals:
-        # Use the value at the prediction start point (19th point from the end)
-        if len(residuals) > prediction_size:
-            last_value = residuals.iloc[-prediction_size - 1]
-        else:
-            last_value = residuals.iloc[-1]  # Fallback to the last point if not enough points
-        naive_predictions.append([last_value] * prediction_size)
+        if len(residuals) < 19:
+            raise ValueError("Insufficient data points in residuals to use the 19th point from the back.")
+        nineteenth_value = residuals.iloc[-19]  # Use the 19th point from the back (we predict the next 18)
+        naive_predictions.append([nineteenth_value] * prediction_size)
     return naive_predictions
+
+
 
 
 
@@ -279,28 +278,42 @@ def plot_prediction_errors(original_series_list, reconstructed_new_data, length=
     plt.legend()
     plt.show()
 
-def evaluate_predictions(actual_list, model_predicted_list, naive_predicted_list):
-    model_mse_list = []
-    model_mae_list = []
-    model_r2_list = []
-    model_smape_list = []
+
+
+
+def evaluate_predictions(test_residuals_list, mlp_predicted_list, naive_predicted_list):
+    mlp_mse_list = []
+    mlp_mae_list = []
+    mlp_r2_list = []
+    mlp_smape_list = []
 
     naive_mse_list = []
     naive_mae_list = []
     naive_r2_list = []
     naive_smape_list = []
 
-    for actual, model_pred, naive_pred in zip(actual_list, model_predicted_list, naive_predicted_list):
-        # Evaluate model predictions
-        model_mse = mean_squared_error(actual, model_pred)
-        model_mae = mean_absolute_error(actual, model_pred)
-        model_r2 = r2_score(actual, model_pred)
-        model_smape = smape_tensors(actual, model_pred)
+    for i, (actual, mlp_pred, naive_pred) in enumerate(zip(test_residuals_list, mlp_predicted_list, naive_predicted_list)):
+        # Ensure all series have the same length
+        actual = actual.reset_index(drop=True)
+        mlp_pred = pd.Series(mlp_pred).iloc[:len(actual)]
+        naive_pred = pd.Series(naive_pred).iloc[:len(actual)]
+
+        # Print the values being compared for the first series only
+        if i == 0:
+            print(f"Series {i+1} - Actual: {actual.values}")
+            print(f"Series {i+1} - MLP Predicted: {mlp_pred.values}")
+            print(f"Series {i+1} - Naive Predicted: {naive_pred.values}")
+
+        # Evaluate MLP predictions
+        mlp_mse = mean_squared_error(actual, mlp_pred)
+        mlp_mae = mean_absolute_error(actual, mlp_pred)
+        mlp_r2 = r2_score(actual, mlp_pred)
+        mlp_smape = smape_tensors(actual, mlp_pred)
         
-        model_mse_list.append(model_mse)
-        model_mae_list.append(model_mae)
-        model_r2_list.append(model_r2)
-        model_smape_list.append(model_smape)
+        mlp_mse_list.append(mlp_mse)
+        mlp_mae_list.append(mlp_mae)
+        mlp_r2_list.append(mlp_r2)
+        mlp_smape_list.append(mlp_smape)
 
         # Evaluate naive predictions
         naive_mse = mean_squared_error(actual, naive_pred)
@@ -314,6 +327,6 @@ def evaluate_predictions(actual_list, model_predicted_list, naive_predicted_list
         naive_smape_list.append(naive_smape)
 
     return {
-        "model": (model_mse_list, model_mae_list, model_r2_list, model_smape_list),
+        "mlp": (mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list),
         "naive": (naive_mse_list, naive_mae_list, naive_r2_list, naive_smape_list)
     }

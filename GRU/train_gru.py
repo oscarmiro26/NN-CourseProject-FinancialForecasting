@@ -149,6 +149,9 @@ def main():
     denormalized_predictions = denormalize_predictions(predictions, scalers)
 
     print('Generating naive predictions...')
+<<<<<<< HEAD
+    naive_predictions = naive_predictor(eval_residuals_list, PREDICTION_SIZE)
+=======
     naive_preds = naive_predictor(residual_list, PREDICTION_SIZE)
 
     print('Evaluating predicted vs actual residual predictions...')
@@ -172,14 +175,38 @@ def main():
     print(f"Mean SMAPE: {np.mean(naive_smape_list):.4f}")
 
 
+>>>>>>> 362c04cda46f7d4c86e50750d0555f86a721ce2d
 
     print('Plotting residual predictions vs actual...')
     #plot_predictions(residual_list, denormalized_predictions, naive_preds, PREDICTION_SIZE, extra_context_points=30)
 
+<<<<<<< HEAD
+    # Reconstructing the series
+    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
+
+    # Uncomment the following line if you want to plot the actual vs predicted series
+    # plot_actual_vs_predicted(original_series, reconstructed_series, PREDICTION_SIZE)
+    
+    print("Final SMAPE score:")
+    print(calculate_median_smape(original_series, reconstructed_series, PREDICTION_SIZE))
+    
+    # Calculate and print the median SMAPE of the naive residuals versus the true residuals
+    naive_smape_list = [calculate_median_smape([true], [naive], PREDICTION_SIZE) for true, naive in zip(eval_residuals_list, naive_predictions)]
+
+    median_naive_smape = np.median(naive_smape_list)
+    median_pred_smape = np.median(smape_list)
+
+    print("Median SMAPE for naive predictions:")
+    print(median_naive_smape)
+
+    print("Median SMAPE for model predictions:")
+    print(median_pred_smape)
+=======
     reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
     
     print("Final SMAPE score:")
     print(calculate_median_smape(original_series, reconstructed_series, PREDICTION_SIZE))
+>>>>>>> 362c04cda46f7d4c86e50750d0555f86a721ce2d
 
 
 if __name__ == "__main__":

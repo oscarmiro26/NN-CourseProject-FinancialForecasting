@@ -89,75 +89,54 @@ def split_data(residual_list, val_split, eval_size):
 
 # Modify the normalize_data functions accordingly
 def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test):
-    print('  Normalizing data...')
+    print('Normalizing data...')
     scaled_train_residuals_list = []
     scaled_val_residuals_list = []
     scaled_test_residuals_list = []
     scaled_all_residuals_list = [] 
-    scalers = []
+    train_scalers = []
+    val_scalers = []
+    test_scalers = []
 
-    for train_res, val_res, test_res, all_res in zip(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test):
+    for i, (train_res, val_res, test_res, all_res) in enumerate(zip(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test)):
         train_res_np = train_res.values.reshape(-1, 1)
         val_res_np = val_res.values.reshape(-1, 1)
         test_res_np = test_res.values.reshape(-1, 1)
         all_res_np = all_res.values.reshape(-1, 1)
 
-        scaler = MinMaxScaler(feature_range=(0, 1))
-        
-        scaled_train_res = scaler.fit_transform(train_res_np)
-        scaled_val_res = scaler.transform(val_res_np)
-        scaled_test_res = scaler.transform(test_res_np)
-        scaled_all_res = scaler.transform(all_res_np)
+        print(f"Original shapes for sequence {i}: train={train_res_np.shape}, val={val_res_np.shape}, test={test_res_np.shape}, all={all_res_np.shape}")
 
+        # Fit the scaler on the training data and transform it
+        train_scaler = MinMaxScaler(feature_range=(-1, 1))
+        scaled_train_res = train_scaler.fit_transform(train_res_np)
         scaled_train_residuals_list.append(scaled_train_res)
+        train_scalers.append(train_scaler)
+        
+        # Fit the scaler on the validation data and transform it
+        val_scaler = MinMaxScaler(feature_range=(-1, 1))
+        scaled_val_res = val_scaler.fit_transform(val_res_np)
         scaled_val_residuals_list.append(scaled_val_res)
+        val_scalers.append(val_scaler)
+
+        # Fit the scaler on the test data and transform it
+        test_scaler = MinMaxScaler(feature_range=(-1, 1))
+        scaled_test_res = test_scaler.fit_transform(test_res_np)
         scaled_test_residuals_list.append(scaled_test_res)
+        test_scalers.append(test_scaler)
+
+        # Transform all residuals using the scaler fitted on the training data
+        scaled_all_res = train_scaler.transform(all_res_np)
         scaled_all_residuals_list.append(scaled_all_res)
 
-        scalers.append(scaler)
+        print(f"Scaled shapes for sequence {i}: train={scaled_train_res.shape}, val={scaled_val_res.shape}, test={scaled_test_res.shape}, all={scaled_all_res.shape}")
 
+    # Concatenate the scaled data
     scaled_train_data = np.concatenate(scaled_train_residuals_list)
     scaled_val_data = np.concatenate(scaled_val_residuals_list)
     scaled_test_data = np.concatenate(scaled_test_residuals_list)
 
-    return scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, scalers
+    return scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers
 
-
-
-#normalization if we want to give more attention to outliers and peaks. scaling data to have a mean of 0 and a standard deviation of 1.
-def normalize_data_outliers(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_eval):
-    print('  Normalizing data...')
-    scaled_train_residuals_list = []
-    scaled_val_residuals_list = []
-    scaled_test_residuals_list = []
-    scaled_all_residuals_list = [] 
-    scalers = []
-
-    for train_res, val_res, test_res, all_res in zip(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_eval):
-        train_res_np = train_res.values.reshape(-1, 1)
-        val_res_np = val_res.values.reshape(-1, 1)
-        test_res_np = test_res.values.reshape(-1, 1)
-        all_res_np = all_res.values.reshape(-1, 1)
-
-        scaler = StandardScaler()
-        
-        scaled_train_res = scaler.fit_transform(train_res_np)
-        scaled_val_res = scaler.transform(val_res_np)
-        scaled_test_res = scaler.transform(test_res_np)
-        scaled_all_res = scaler.transform(all_res_np)
-
-        scaled_train_residuals_list.append(scaled_train_res)
-        scaled_val_residuals_list.append(scaled_val_res)
-        scaled_test_residuals_list.append(scaled_test_res)
-        scaled_all_residuals_list.append(scaled_all_res)
-
-        scalers.append(scaler)
-
-    scaled_train_data = np.concatenate(scaled_train_residuals_list)
-    scaled_val_data = np.concatenate(scaled_val_residuals_list)
-    scaled_test_data = np.concatenate(scaled_test_residuals_list)
-
-    return scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, scalers
 
 
 def create_datasets(look_back):
@@ -182,17 +161,17 @@ def create_datasets(look_back):
     train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test = split_data(residual_list, VALIDATION_SPLIT, PREDICTION_SIZE)
     
     # Debug statements for data splitting
-    print("Length of train_residuals_list[0]:", len(train_residuals_list[0]))
-    print("Length of val_residuals_list[0]:", len(val_residuals_list[0]))
-    print("Length of test_residuals_list[0]:", len(test_residuals_list[0]))
+    for i in range(len(train_residuals_list)):
+        print(f"Split lengths for sequence {i}: train={len(train_residuals_list[i])}, val={len(val_residuals_list[i])}, test={len(test_residuals_list[i])}")
 
-    # Normalize the data - change between normal or the one giving more attention to outliers
-    scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_data, scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test)
+    # Normalize the data
+    scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test)
 
     # Debug statements for normalization
     print("Length of scaled_train_data:", len(scaled_train_data))
     print("Length of scaled_val_data:", len(scaled_val_data))
     print("Length of scaled_test_data:", len(scaled_test_data))
+    print("Number of scaled sequences for all data:", len(scaled_all_residuals_list))
 
     # Create datasets
     X_train, Y_train = create_dataset(scaled_train_data, look_back)
@@ -223,14 +202,20 @@ def create_datasets(look_back):
         Y_val,         # Validation targets
         X_test,        # Test features
         Y_test,        # Test targets
-        scalers,       # Scalers used for normalization
         trend_list,    # List of trend components for each series
         seasonal_list, # List of seasonal components for each series
         test_residuals_list, # List of residuals used for testing
-        scaled_all_data,     # Scaled data for all series
-        original_series_list,# Original series for all data
-        residual_list  # Full residual list for all series
+        original_series_list, # Original series for all data
+        residual_list,  # Full residual list for all series
+        train_scalers,  # Scalers for training data
+        val_scalers,    # Scalers for validation data
+        test_scalers,   # Scalers for test data
+        scaled_all_residuals_list # Scaled residuals for all data
     )
+
+
+
+
 
 
 def main():
