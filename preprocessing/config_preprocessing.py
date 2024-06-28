@@ -19,5 +19,5 @@ TREND_CALCULATION_WINDOW = 12
 VERIFY_PREPROCESSING = False
 
 # Configuration parameters
-VALIDATION_SPLIT = 0.2          # Percentage of data to be used for validation
+VALIDATION_SPLIT = 0.1          # Percentage of data to be used for validation
 PREDICTION_SIZE = 18       # Number of future datapoints to predict and hold out for evaluation
