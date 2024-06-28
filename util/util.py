@@ -135,13 +135,9 @@ def plot_predictions(actual_full_list, predicted_list, naive_predictions, num_po
 
         # Get the y-value at the prediction start point
         y_value_at_red_line = actual_full.iloc[prediction_start]
-        print(f"Series {i+1}: Y value at red line: {y_value_at_red_line}")
 
         # Print the values being plotted for debugging
         actual_values_for_plot = actual_full.iloc[-num_points - extra_context_points:].values
-        print(f"Series {i+1}: Actual values for plotting: {actual_values_for_plot}")
-        print(f"Series {i+1}: Naive predictions: {naive_pred}")
-        print(f"Series {i+1}: Model predictions: {predicted}")
 
         # Plot the actual values for the last points including extra context points
         plt.plot(actual_range, actual_values_for_plot, label='Actual', color='blue')

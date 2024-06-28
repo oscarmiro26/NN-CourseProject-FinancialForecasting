@@ -148,23 +148,29 @@ def main():
         print("No predictions generated.")
         return
 
-    # Print example of normalized predictions
-    print("Example of normalized predictions:", predictions[0][:5])
     
     print('Denormalizing predictions...')
     denormalized_predictions = denormalize_predictions(predictions, test_scalers)
     
-    # Print example of denormalized predictions
-    print("Example of denormalized predictions:", denormalized_predictions[0][:5])
-    
-    # Example points of actual residuals
-    print("Example of actual residuals:", test_residuals_list[0][:5])
-
     print('Generating naive predictions...')
     naive_preds = naive_predictor(residual_list, PREDICTION_SIZE)
 
     print('Evaluating predicted vs actual residual predictions...')
-    
+    # Accessing the first series from all lists
+    first_test_residuals = test_residuals_list[0]
+    first_denormalized_predictions = denormalized_predictions[0]
+    first_naive_preds = naive_preds[0]
+
+    # Printing the first series
+    print("First series of test residuals:")
+    print(first_test_residuals)
+
+    print("\nFirst series of denormalized predictions:")
+    print(first_denormalized_predictions)
+
+    print("\nFirst series of naive predictions:")
+    print(first_naive_preds)
+
     eval_metrics = evaluate_predictions(test_residuals_list, denormalized_predictions, naive_preds)
 
     # Print evaluation metrics for MLP
@@ -195,7 +201,7 @@ def main():
     ) 
     """
     reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
-    plot_prediction_errors(original_series_list, reconstructed_series, PREDICTION_SIZE)
+    #plot_prediction_errors(original_series_list, reconstructed_series, PREDICTION_SIZE)
     
     print("Final SMAPE score:")
     print(calculate_median_smape(original_series_list, reconstructed_series, PREDICTION_SIZE))

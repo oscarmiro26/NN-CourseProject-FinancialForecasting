@@ -104,8 +104,6 @@ def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list
         test_res_np = test_res.values.reshape(-1, 1)
         all_res_np = all_res.values.reshape(-1, 1)
 
-        print(f"Original shapes for sequence {i}: train={train_res_np.shape}, val={val_res_np.shape}, test={test_res_np.shape}, all={all_res_np.shape}")
-
         # Fit the scaler on the training data and transform it
         train_scaler = MinMaxScaler(feature_range=(-1, 1))
         scaled_train_res = train_scaler.fit_transform(train_res_np)
@@ -127,8 +125,6 @@ def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list
         # Transform all residuals using the scaler fitted on the training data
         scaled_all_res = train_scaler.transform(all_res_np)
         scaled_all_residuals_list.append(scaled_all_res)
-
-        print(f"Scaled shapes for sequence {i}: train={scaled_train_res.shape}, val={scaled_val_res.shape}, test={scaled_test_res.shape}, all={scaled_all_res.shape}")
 
     # Concatenate the scaled data
     scaled_train_data = np.concatenate(scaled_train_residuals_list)
