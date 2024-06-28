@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from preprocessing.data_preprocessing import *
 from models.model_factory import ModelFactory
-from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape, naive_predictor, plot_prediction_errors
+from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape, naive_predictor, plot_prediction_errors, calculate_mean_smape
 from config_mlp import *
 
 
@@ -136,7 +136,7 @@ def main():
     train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
    
     print('Creating model...')
-    model = ModelFactory.create_model('MLP', LOOK_BACK, HIDDEN_SIZE_1, HIDDEN_SIZE_2, PREDICTED_DATA_POINTS).to(device)
+    model = ModelFactory.create_model('MLP', LOOK_BACK, HIDDEN_SIZE, PREDICTED_DATA_POINTS).to(device)
 
     start_to_train_model(model, train_loader, val_loader)
 
@@ -148,23 +148,29 @@ def main():
         print("No predictions generated.")
         return
 
-    # Print example of normalized predictions
-    print("Example of normalized predictions:", predictions[0][:5])
     
     print('Denormalizing predictions...')
     denormalized_predictions = denormalize_predictions(predictions, test_scalers)
     
-    # Print example of denormalized predictions
-    print("Example of denormalized predictions:", denormalized_predictions[0][:5])
-    
-    # Example points of actual residuals
-    print("Example of actual residuals:", test_residuals_list[0][:5])
-
     print('Generating naive predictions...')
     naive_preds = naive_predictor(residual_list, PREDICTION_SIZE)
 
     print('Evaluating predicted vs actual residual predictions...')
-    
+    # Accessing the first series from all lists
+    first_test_residuals = test_residuals_list[0]
+    first_denormalized_predictions = denormalized_predictions[0]
+    first_naive_preds = naive_preds[0]
+
+    # Printing the first series
+    print("First series of test residuals:")
+    print(first_test_residuals)
+
+    print("\nFirst series of denormalized predictions:")
+    print(first_denormalized_predictions)
+
+    print("\nFirst series of naive predictions:")
+    print(first_naive_preds)
+
     eval_metrics = evaluate_predictions(test_residuals_list, denormalized_predictions, naive_preds)
 
     # Print evaluation metrics for MLP
@@ -185,21 +191,27 @@ def main():
 
     #print('Plotting residual predictions vs actual...')
     #plot_prediction_errors(residual_list, denormalized_predictions, PREDICTION_SIZE)
-    """
-    plot_predictions(
+    """plot_predictions(
         actual_full_list=residual_list,  # The actual full residuals
         predicted_list=denormalized_predictions,  # The denormalized model predictions
         naive_predictions=naive_preds,  # The naive predictions
         num_points=PREDICTION_SIZE,  # The number of prediction points
         extra_context_points=30  # The number of extra context points (adjust as needed)
-    ) 
-    """
-    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
-    plot_prediction_errors(original_series_list, reconstructed_series, PREDICTION_SIZE)
-    
-    print("Final SMAPE score:")
-    print(calculate_median_smape(original_series_list, reconstructed_series, PREDICTION_SIZE))
+    ) """
 
+    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
+    #plot_prediction_errors(original_series_list, reconstructed_series, PREDICTION_SIZE)
+    
+    print("Final SMAPE score MLP:")
+    print(calculate_median_smape(original_series_list, reconstructed_series, PREDICTION_SIZE))
+    print(calculate_mean_smape(original_series_list, reconstructed_series, PREDICTION_SIZE))
+    #plot_actual_vs_predicted(original_series_list, reconstructed_series, PREDICTION_SIZE)
+
+    print("Final SMAPE score Naive:")
+    reconstructed_naive_series = reconstruct_series(trend_list, seasonal_list, naive_preds, PREDICTION_SIZE)
+    print(calculate_median_smape(original_series_list, reconstructed_naive_series, PREDICTION_SIZE))
+    print(calculate_mean_smape(original_series_list, reconstructed_naive_series, PREDICTION_SIZE))
+    #plot_actual_vs_predicted(original_series_list, reconstructed_naive_series, PREDICTION_SIZE)
 
 if __name__ == "__main__":
     main()

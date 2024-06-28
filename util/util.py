@@ -38,6 +38,13 @@ def calculate_median_smape(original_series, reconstructed_series, prediction_siz
         smapes.append(smape(orig_overlap, recon_overlap))
     return np.median(smapes)
 
+def calculate_mean_smape(original_series, reconstructed_series, prediction_size):
+    smapes = []
+    for orig, recon in zip(original_series, reconstructed_series):
+        orig_overlap = orig[-prediction_size:]
+        recon_overlap = recon[:prediction_size]
+        smapes.append(smape(orig_overlap, recon_overlap))
+    return np.mean(smapes)
 
 def smape_loss(y_true, y_pred):
     denominator = (torch.abs(y_true) + torch.abs(y_pred)) / 2.0
@@ -135,13 +142,9 @@ def plot_predictions(actual_full_list, predicted_list, naive_predictions, num_po
 
         # Get the y-value at the prediction start point
         y_value_at_red_line = actual_full.iloc[prediction_start]
-        print(f"Series {i+1}: Y value at red line: {y_value_at_red_line}")
 
         # Print the values being plotted for debugging
         actual_values_for_plot = actual_full.iloc[-num_points - extra_context_points:].values
-        print(f"Series {i+1}: Actual values for plotting: {actual_values_for_plot}")
-        print(f"Series {i+1}: Naive predictions: {naive_pred}")
-        print(f"Series {i+1}: Model predictions: {predicted}")
 
         # Plot the actual values for the last points including extra context points
         plt.plot(actual_range, actual_values_for_plot, label='Actual', color='blue')
