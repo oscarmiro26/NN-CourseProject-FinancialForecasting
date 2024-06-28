@@ -279,28 +279,28 @@ def plot_prediction_errors(original_series_list, reconstructed_new_data, length=
     plt.legend()
     plt.show()
 
-def evaluate_predictions(actual_list, mlp_predicted_list, naive_predicted_list):
-    mlp_mse_list = []
-    mlp_mae_list = []
-    mlp_r2_list = []
-    mlp_smape_list = []
+def evaluate_predictions(actual_list, model_predicted_list, naive_predicted_list):
+    model_mse_list = []
+    model_mae_list = []
+    model_r2_list = []
+    model_smape_list = []
 
     naive_mse_list = []
     naive_mae_list = []
     naive_r2_list = []
     naive_smape_list = []
 
-    for actual, mlp_pred, naive_pred in zip(actual_list, mlp_predicted_list, naive_predicted_list):
-        # Evaluate MLP predictions
-        mlp_mse = mean_squared_error(actual, mlp_pred)
-        mlp_mae = mean_absolute_error(actual, mlp_pred)
-        mlp_r2 = r2_score(actual, mlp_pred)
-        mlp_smape = smape_tensors(actual, mlp_pred)
+    for actual, model_pred, naive_pred in zip(actual_list, model_predicted_list, naive_predicted_list):
+        # Evaluate model predictions
+        model_mse = mean_squared_error(actual, model_pred)
+        model_mae = mean_absolute_error(actual, model_pred)
+        model_r2 = r2_score(actual, model_pred)
+        model_smape = smape_tensors(actual, model_pred)
         
-        mlp_mse_list.append(mlp_mse)
-        mlp_mae_list.append(mlp_mae)
-        mlp_r2_list.append(mlp_r2)
-        mlp_smape_list.append(mlp_smape)
+        model_mse_list.append(model_mse)
+        model_mae_list.append(model_mae)
+        model_r2_list.append(model_r2)
+        model_smape_list.append(model_smape)
 
         # Evaluate naive predictions
         naive_mse = mean_squared_error(actual, naive_pred)
@@ -314,6 +314,6 @@ def evaluate_predictions(actual_list, mlp_predicted_list, naive_predicted_list):
         naive_smape_list.append(naive_smape)
 
     return {
-        "mlp": (mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list),
+        "model": (model_mse_list, model_mae_list, model_r2_list, model_smape_list),
         "naive": (naive_mse_list, naive_mae_list, naive_r2_list, naive_smape_list)
     }

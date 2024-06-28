@@ -35,5 +35,5 @@ mlp_dir = os.path.join(base_path, '..', 'MLP')
 os.makedirs(mlp_dir, exist_ok=True)
 MODEL_SAVE_PATH = os.path.join(mlp_dir, 'mlp_model.pth')
 
-TRAIN_MODEL = True
+TRAIN_MODEL = False
 VERIFY_PREPROCESSING = False
