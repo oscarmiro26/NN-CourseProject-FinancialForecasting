@@ -167,7 +167,7 @@ def create_datasets(look_back):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Preprocess the data
-    original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list = start_preprocess_data(data, TREND_CALCULATION_WINDOW)
+    original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list = start_preprocess_data(data, look_back)
     
     # Debug statements for preprocessing
     for i, (original, trend, detrended, seasonal, residual) in enumerate(zip(original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list)):
