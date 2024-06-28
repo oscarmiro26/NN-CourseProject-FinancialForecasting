@@ -284,39 +284,39 @@ def plot_prediction_errors(original_series_list, reconstructed_new_data, length=
 
 
 
-def evaluate_predictions(test_residuals_list, mlp_predicted_list, naive_predicted_list):
-    mlp_mse_list = []
-    mlp_mae_list = []
-    mlp_r2_list = []
-    mlp_smape_list = []
+def evaluate_predictions(test_residuals_list, model_predicted_list, naive_predicted_list):
+    model_mse_list = []
+    model_mae_list = []
+    model_r2_list = []
+    model_smape_list = []
 
     naive_mse_list = []
     naive_mae_list = []
     naive_r2_list = []
     naive_smape_list = []
 
-    for i, (actual, mlp_pred, naive_pred) in enumerate(zip(test_residuals_list, mlp_predicted_list, naive_predicted_list)):
+    for i, (actual, model_pred, naive_pred) in enumerate(zip(test_residuals_list, model_predicted_list, naive_predicted_list)):
         # Ensure all series have the same length
         actual = actual.reset_index(drop=True)
-        mlp_pred = pd.Series(mlp_pred).iloc[:len(actual)]
+        model_pred = pd.Series(model_pred).iloc[:len(actual)]
         naive_pred = pd.Series(naive_pred).iloc[:len(actual)]
 
         # Print the values being compared for the first series only
         if i == 0:
             print(f"Series {i+1} - Actual: {actual.values}")
-            print(f"Series {i+1} - MLP Predicted: {mlp_pred.values}")
+            print(f"Series {i+1} - MODEL Predicted: {model_pred.values}")
             print(f"Series {i+1} - Naive Predicted: {naive_pred.values}")
 
         # Evaluate MLP predictions
-        mlp_mse = mean_squared_error(actual, mlp_pred)
-        mlp_mae = mean_absolute_error(actual, mlp_pred)
-        mlp_r2 = r2_score(actual, mlp_pred)
-        mlp_smape = smape_tensors(actual, mlp_pred)
+        model_mse = mean_squared_error(actual, model_pred)
+        model_mae = mean_absolute_error(actual, model_pred)
+        model_r2 = r2_score(actual, model_pred)
+        model_smape = smape_tensors(actual, model_pred)
         
-        mlp_mse_list.append(mlp_mse)
-        mlp_mae_list.append(mlp_mae)
-        mlp_r2_list.append(mlp_r2)
-        mlp_smape_list.append(mlp_smape)
+        model_mse_list.append(model_mse)
+        model_mae_list.append(model_mae)
+        model_r2_list.append(model_r2)
+        model_smape_list.append(model_smape)
 
         # Evaluate naive predictions
         naive_mse = mean_squared_error(actual, naive_pred)
@@ -330,6 +330,6 @@ def evaluate_predictions(test_residuals_list, mlp_predicted_list, naive_predicte
         naive_smape_list.append(naive_smape)
 
     return {
-        "mlp": (mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list),
+        "model": (model_mse_list, model_mae_list, model_r2_list, model_smape_list),
         "naive": (naive_mse_list, naive_mae_list, naive_r2_list, naive_smape_list)
     }

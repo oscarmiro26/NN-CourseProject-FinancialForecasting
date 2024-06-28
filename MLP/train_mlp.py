@@ -16,7 +16,7 @@ from tqdm import tqdm
 from preprocessing.data_preprocessing import *
 from models.model_factory import ModelFactory
 from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape, naive_predictor, plot_prediction_errors, calculate_mean_smape
-from config_mlp import *
+from MLP.config_mlp import *
 
 
 def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss_function, model_save_path, patience=5):
@@ -174,7 +174,7 @@ def main():
     eval_metrics = evaluate_predictions(test_residuals_list, denormalized_predictions, naive_preds)
 
     # Print evaluation metrics for MLP
-    mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list = eval_metrics["mlp"]
+    mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list = eval_metrics["model"]
     print("MLP Predictions:")
     print(f"Mean MSE: {np.mean(mlp_mse_list):.4f}")
     print(f"Mean MAE: {np.mean(mlp_mae_list):.4f}")
