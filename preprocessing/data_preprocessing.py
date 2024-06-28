@@ -136,6 +136,9 @@ def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list
     scaled_test_data = np.concatenate(scaled_test_residuals_list)
 
     return scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers
+
+
+
 def create_datasets(look_back):
     # Load the dataset from the specified CSV file
     print('Loading data...')

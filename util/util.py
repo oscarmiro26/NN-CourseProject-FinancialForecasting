@@ -280,6 +280,7 @@ def plot_prediction_errors(original_series_list, reconstructed_new_data, length=
 
 
 
+
 def evaluate_predictions(test_residuals_list, mlp_predicted_list, naive_predicted_list):
     mlp_mse_list = []
     mlp_mae_list = []

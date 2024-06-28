@@ -1,8 +1,6 @@
 import sys
 import os
 
-from GRU.config_GRU import INPUT_SIZE, NUM_LAYERS, OUTPUT_SIZE
-
 # Add the project root directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -17,114 +15,60 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from preprocessing.data_preprocessing import *
 from models.model_factory import ModelFactory
-from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, plot_predictions_naive, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape
-from GRU.config_GRU import *
+from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape, naive_predictor
+from GRU.config_gru import *
 
 
-def train_model(model_str, train_loader, val_loader, num_epochs, loss_function, model_save_path, patience=5):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # Define the hyperparameter grid
-    hidden_sizes = [32, 64, 128]
-    num_layers = [1, 2, 3]
-    learning_rates = [0.001, 0.005, 0.01]
-    dropout_rates = [0.0, 0.2, 0.5]
-    
+def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss_function, model_save_path, patience=5):
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     best_val_loss = float('inf')
-    best_hyperparameters = None
-    log = []
+    epochs_without_improvement = 0
+    total_iterations = len(train_loader) * num_epochs  # Total number of iterations
 
-    for hidden_size in hidden_sizes:
-        for num_layer in num_layers:
-            for lr in learning_rates:
-                for dropout in dropout_rates:
-                    # Initialize the model with the current set of hyperparameters
-                    model = ModelFactory.create_model(model_str, INPUT_SIZE, hidden_size, num_layer, OUTPUT_SIZE, dropout)
-                    model.to(device)
-                    
-                    # Define the optimizer with the current learning rate
-                    optimizer = optim.Adam(model.parameters(), lr=lr)
-                    
-                    # Training loop
-                    best_epoch_loss = float('inf')
-                    epochs_no_improve = 0
-                    
-                    for epoch in range(num_epochs):
-                        model.train()
-                        epoch_loss = 0.0
-                        
-                        for X_batch, y_batch in train_loader:
-                            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
-                            
-                            optimizer.zero_grad()
-                            output = model(X_batch)
-                            loss = loss_function(output, y_batch)
-                            loss.backward()
-                            optimizer.step()
-                            
-                            epoch_loss += loss.item() * X_batch.size(0)
-                        
-                        epoch_loss /= len(train_loader.dataset)
-                        
-                        # Validation loop
-                        model.eval()
-                        val_loss = 0.0
-                        with torch.no_grad():
-                            for X_batch, y_batch in val_loader:
-                                X_batch, y_batch = X_batch.to(device), y_batch.to(device)
-                                output = model(X_batch)
-                                loss = loss_function(output, y_batch)
-                                val_loss += loss.item() * X_batch.size(0)
-                        
-                        val_loss /= len(val_loader.dataset)
-                        
-                        # Early stopping
-                        if val_loss < best_epoch_loss:
-                            best_epoch_loss = val_loss
-                            epochs_no_improve = 0
-                            torch.save(model.state_dict(), model_save_path)
-                        else:
-                            epochs_no_improve += 1
-                            if epochs_no_improve >= patience:
-                                break
+    pbar = tqdm(total=total_iterations, desc="Training Progress", leave=True)
+    for epoch in range(num_epochs):
+        model.train()
+        train_loss = 0.0
+        for batch_X, batch_Y in train_loader:
+            outputs = model(batch_X).view(-1)  # Ensure output tensor is flattened
+            batch_Y = batch_Y.view(-1)  # Ensure target tensor is flattened
+            loss = loss_function(outputs, batch_Y)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
+            pbar.set_postfix({'Training Loss': train_loss / (pbar.n + 1)})
+            pbar.update(1)
+        
+        train_loss /= len(train_loader)
 
-                        print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f}, Validation Loss: {val_loss:.4f}")
-                    
-                    # Log the results
-                    log_entry = {
-                        'hidden_size': hidden_size,
-                        'num_layers': num_layer,
-                        'learning_rate': lr,
-                        'dropout': dropout,
-                        'val_loss': best_epoch_loss
-                    }
-                    log.append(log_entry)
-                    
-                    # Update the best hyperparameters if the current validation loss is the best
-                    if best_epoch_loss < best_val_loss:
-                        best_val_loss = best_epoch_loss
-                        best_hyperparameters = (hidden_size, num_layer, lr, dropout)
-    
-    # Print and save the best hyperparameters
-    print("Best Hyperparameters:")
-    print(f"Hidden Size: {best_hyperparameters[0]}")
-    print(f"Number of Layers: {best_hyperparameters[1]}")
-    print(f"Learning Rate: {best_hyperparameters[2]}")
-    print(f"Dropout: {best_hyperparameters[3]}")
-    print(f"Best Validation Loss: {best_val_loss:.4f}")
-    
-    # Save the log to a file
-    with open('hyperparameter_tuning_log.csv', 'w') as f:
-        f.write("hidden_size,num_layers,learning_rate,dropout,val_loss\n")
-        for entry in log:
-            f.write(f"{entry['hidden_size']},{entry['num_layers']},{entry['learning_rate']},{entry['dropout']},{entry['val_loss']:.4f}\n")
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for val_X, val_Y in val_loader:
+                val_outputs = model(val_X).view(-1)  # Ensure output tensor is flattened
+                val_Y = val_Y.view(-1)  # Ensure target tensor is flattened
+                val_loss += loss_function(val_outputs, val_Y).item()
+        val_loss /= len(val_loader)
 
-    # Load the best model
-    model = ModelFactory.create_model(model_str, INPUT_SIZE, hidden_size, num_layer, OUTPUT_SIZE, dropout)
-    model.load_state_dict(torch.load(model_save_path))
-    model.to(device)
-    
-    return model
+        # Update the progress bar description to include the current epoch's training and validation losses
+        pbar.set_description(f"Epoch {epoch+1}/{num_epochs} | Training: {train_loss:.4f} | Val: {val_loss:.4f}")
+        
+        # Save the model if the validation loss has improved
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            epochs_without_improvement = 0
+            torch.save(model.state_dict(), model_save_path)
+        else:
+            epochs_without_improvement += 1
+            if epochs_without_improvement >= patience:
+                tqdm.write(f"Early stopping at epoch {epoch+1}")
+                break
+
+    pbar.close()
+
+
+
 
 
 def generate_predictions(model, scaled_all_data, look_back, prediction_size, device):
@@ -159,75 +103,84 @@ def generate_predictions(model, scaled_all_data, look_back, prediction_size, dev
     return all_predictions  # Return the list of all predictions for all sequences
 
 
-def create_dataloaders(X_train, Y_train, X_val, Y_val, X_test, Y_test):
-    # Create data loaders for training, validation, and test sets
-    # DataLoader helps manage batches of data efficiently during training and evaluation
-    train_loader = DataLoader(TensorDataset(X_train, Y_train), batch_size=BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(TensorDataset(X_val, Y_val), batch_size=BATCH_SIZE, shuffle=False)
-    test_loader = DataLoader(TensorDataset(X_test, Y_test), batch_size=BATCH_SIZE, shuffle=False)
-    return train_loader, val_loader, test_loader
 
 
-def start_to_train_model(model_str, train_loader, val_loader):
+
+def start_to_train_model(model, train_loader, val_loader):
     # Train the model if the TRAIN_MODEL flag is set to True
     if TRAIN_MODEL:
         print('Training model...')
-        model = train_model(model_str, train_loader, val_loader, NUM_EPOCHS, LOSS_FUNCTION, MODEL_SAVE_PATH, PATIENCE)
+        train_model(model, train_loader, val_loader, NUM_EPOCHS, LEARNING_RATE, LOSS_FUNCTION, MODEL_SAVE_PATH, PATIENCE)
     else:
         # Load the pre-trained model weights
         print('Loading saved model...')
-        model = ModelFactory.create_model(model_str)
         model.load_state_dict(torch.load(MODEL_SAVE_PATH))
 
-    return model
 
 
-def naive_predictor(eval_residuals_list, prediction_size):
-    naive_predictions = []
-    for residuals in eval_residuals_list:
-        last_value = residuals[-1]
-        naive_predictions.append([last_value] * prediction_size)
-    return naive_predictions
+def create_dataloaders(X_train, Y_train, X_val, Y_val):
+     # Create data loaders for training and validation sets
+    train_loader = DataLoader(TensorDataset(X_train, Y_train), batch_size=BATCH_SIZE, shuffle=True)
+    val_loader = DataLoader(TensorDataset(X_val, Y_val), batch_size=BATCH_SIZE, shuffle=False)
+    return train_loader, val_loader
 
 
 def main():
-    print('Lookback:', LOOK_BACK)
-    # Determine if CUDA (GPU) is available; if not, use the CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Preprocess the data and create training, validation, and test datasets
     print('Creating datasets...')
-    X_train, Y_train, X_val, Y_val, X_test, Y_test, scalers, trend_list, seasonal_list, eval_residuals_list, scaled_all_data, original_series = create_datasets(LOOK_BACK)
-    train_loader, val_loader, test_loader = create_dataloaders(X_train, Y_train, X_val, Y_val, X_test, Y_test)
+    datasets = create_datasets(LOOK_BACK)
+    X_train, Y_train, X_val, Y_val, X_test, Y_test, scalers, trend_list, seasonal_list, test_residuals_list, scaled_all_data, original_series, residual_list = datasets
+    
+    train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
    
-    # Initialize the model
-    # The ModelFactory class abstracts the creation of different models
-    # input_size and output_size are set based on the problem requirements
     print('Creating model...')
-    model = start_to_train_model(MODEL, train_loader, val_loader)
+    #model = ModelFactory.create_model(MODEL, LOOK_BACK, HIDDEN_SIZE_1, HIDDEN_SIZE_2, PREDICTED_DATA_POINTS).to(device)
+    model = ModelFactory.create_model('GRU', INPUT_SIZE, HIDDEN_SIZE_1, NUM_LAYERS, OUTPUT_SIZE, 0.0).to(device)
+    print(model)
 
-    # Generate predictions for future data points using the trained model
+    start_to_train_model(model, train_loader, val_loader)
+
     print('Generating predictions...')
     predictions = generate_predictions(model, scaled_all_data, LOOK_BACK, PREDICTION_SIZE, device)
 
-    # Denormalize the predictions to convert them back to the original scale
     print('Denormalizing predictions...')
     denormalized_predictions = denormalize_predictions(predictions, scalers)
 
-    # Evaluate the model's predictions against the actual data of the last 18 points
-    print('Evaluating predicted vs actual residual predictions...')
-    mse_list, mae_list, r2_list, smape_list = evaluate_predictions(eval_residuals_list, denormalized_predictions)
-
-    # Generate naive predictions
     print('Generating naive predictions...')
+<<<<<<< HEAD
     naive_predictions = naive_predictor(eval_residuals_list, PREDICTION_SIZE)
+=======
+    naive_preds = naive_predictor(residual_list, PREDICTION_SIZE)
 
-    # Plot the predictions against the actual data to visualize performance
+    print('Evaluating predicted vs actual residual predictions...')
+    
+    eval_metrics = evaluate_predictions(test_residuals_list, denormalized_predictions, naive_preds)
+
+    # Print evaluation metrics for GRU
+    model_mse_list, model_mae_list, model_r2_list, model_smape_list = eval_metrics["model"]
+    print(f"{MODEL} Predictions:")
+    print(f"Mean MSE: {np.mean(model_mse_list):.4f}")
+    print(f"Mean MAE: {np.mean(model_mae_list):.4f}")
+    print(f"Mean R2: {np.mean(model_r2_list):.4f}")
+    print(f"Mean SMAPE: {np.mean(model_smape_list):.4f}")
+
+    # Print evaluation metrics for Naive
+    naive_mse_list, naive_mae_list, naive_r2_list, naive_smape_list = eval_metrics["naive"]
+    print("Naive Predictions:")
+    print(f"Mean MSE: {np.mean(naive_mse_list):.4f}")
+    print(f"Mean MAE: {np.mean(naive_mae_list):.4f}")
+    print(f"Mean R2: {np.mean(naive_r2_list):.4f}")
+    print(f"Mean SMAPE: {np.mean(naive_smape_list):.4f}")
+
+
+>>>>>>> 362c04cda46f7d4c86e50750d0555f86a721ce2d
+
     print('Plotting residual predictions vs actual...')
-    for true, pred, naive in zip(eval_residuals_list, denormalized_predictions, naive_predictions):
-        #plot_predictions_naive(true, pred, naive, 'Residuals: True vs Predicted vs Naive')
-        pass
+    #plot_predictions(residual_list, denormalized_predictions, naive_preds, PREDICTION_SIZE, extra_context_points=30)
 
+<<<<<<< HEAD
     # Reconstructing the series
     reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
 
@@ -248,7 +201,15 @@ def main():
 
     print("Median SMAPE for model predictions:")
     print(median_pred_smape)
+=======
+    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
+    
+    print("Final SMAPE score:")
+    print(calculate_median_smape(original_series, reconstructed_series, PREDICTION_SIZE))
+>>>>>>> 362c04cda46f7d4c86e50750d0555f86a721ce2d
 
 
 if __name__ == "__main__":
     main()
+
+

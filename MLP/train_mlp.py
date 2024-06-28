@@ -140,9 +140,6 @@ def main():
 
     start_to_train_model(model, train_loader, val_loader)
 
-    print(f'Scaled all residuals list length: {len(scaled_all_residuals_list)}')
-    for i, seq in enumerate(scaled_all_residuals_list):
-        print(f"Length of sequence {i}: {len(seq)}")
 
     print('Generating predictions...')
     predictions = generate_predictions(model, scaled_all_residuals_list, LOOK_BACK, PREDICTION_SIZE, device)
