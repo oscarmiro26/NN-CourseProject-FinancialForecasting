@@ -208,7 +208,7 @@ def main():
 
     # Generate predictions for future data points using the trained model
     print('Generating predictions...')
-    predictions = generate_predictions(model, scaled_all_data, LOOK_BACK, EVAL_PREDICTION_SIZE, device)
+    predictions = generate_predictions(model, scaled_all_data, LOOK_BACK, PREDICTION_SIZE, device)
 
     # Denormalize the predictions to convert them back to the original scale
     print('Denormalizing predictions...')
@@ -220,7 +220,7 @@ def main():
 
     # Generate naive predictions
     print('Generating naive predictions...')
-    naive_predictions = naive_predictor(eval_residuals_list, EVAL_PREDICTION_SIZE)
+    naive_predictions = naive_predictor(eval_residuals_list, PREDICTION_SIZE)
 
     # Plot the predictions against the actual data to visualize performance
     print('Plotting residual predictions vs actual...')
@@ -229,16 +229,16 @@ def main():
         pass
 
     # Reconstructing the series
-    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, EVAL_PREDICTION_SIZE)
+    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
 
     # Uncomment the following line if you want to plot the actual vs predicted series
-    # plot_actual_vs_predicted(original_series, reconstructed_series, EVAL_PREDICTION_SIZE)
+    # plot_actual_vs_predicted(original_series, reconstructed_series, PREDICTION_SIZE)
     
     print("Final SMAPE score:")
-    print(calculate_median_smape(original_series, reconstructed_series, EVAL_PREDICTION_SIZE))
+    print(calculate_median_smape(original_series, reconstructed_series, PREDICTION_SIZE))
     
     # Calculate and print the median SMAPE of the naive residuals versus the true residuals
-    naive_smape_list = [calculate_median_smape([true], [naive], EVAL_PREDICTION_SIZE) for true, naive in zip(eval_residuals_list, naive_predictions)]
+    naive_smape_list = [calculate_median_smape([true], [naive], PREDICTION_SIZE) for true, naive in zip(eval_residuals_list, naive_predictions)]
 
     median_naive_smape = np.median(naive_smape_list)
     median_pred_smape = np.median(smape_list)
