@@ -13,7 +13,7 @@ DATA_FILE = os.path.join(input_data_path, 'M3C_Monthly_FINANCE.csv')
 
 
 # Window size for moving average
-TREND_CALCULATION_WINDOW = 12  
+TREND_CALCULATION_WINDOW = 10  
 
 # Verification flag
 VERIFY_PREPROCESSING = False

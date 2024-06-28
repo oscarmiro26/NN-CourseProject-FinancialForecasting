@@ -38,6 +38,13 @@ def calculate_median_smape(original_series, reconstructed_series, prediction_siz
         smapes.append(smape(orig_overlap, recon_overlap))
     return np.median(smapes)
 
+def calculate_mean_smape(original_series, reconstructed_series, prediction_size):
+    smapes = []
+    for orig, recon in zip(original_series, reconstructed_series):
+        orig_overlap = orig[-prediction_size:]
+        recon_overlap = recon[:prediction_size]
+        smapes.append(smape(orig_overlap, recon_overlap))
+    return np.mean(smapes)
 
 def smape_loss(y_true, y_pred):
     denominator = (torch.abs(y_true) + torch.abs(y_pred)) / 2.0

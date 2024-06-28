@@ -25,6 +25,8 @@ def preprocess_data(series, span):
 
     return series, trend, detrended_series, seasonal, residual
 
+
+
 def prepare_data(data, window=12):
     original_series_list = []
     trend_list = []
