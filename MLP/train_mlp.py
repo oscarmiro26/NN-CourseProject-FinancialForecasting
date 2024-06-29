@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import MinMaxScaler
+
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from preprocessing.data_preprocessing import *
@@ -134,7 +135,7 @@ def main():
     # Preprocess the data and create training, validation, and test datasets
     print('Creating datasets...')
     datasets = create_datasets(LOOK_BACK)
-    X_train, Y_train, X_val, Y_val, X_test, Y_test, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = datasets
+    X_train, Y_train, X_val, Y_val, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = datasets
     
     train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
    
@@ -154,6 +155,8 @@ def main():
     denormalized_predictions = denormalize_predictions(predictions, test_scalers)
 
     naive_preds = naive_predictor(residual_list, PREDICTION_SIZE)
+
+    
 
     eval_metrics = evaluate_predictions(test_residuals_list, denormalized_predictions, naive_preds)
 
@@ -177,7 +180,7 @@ def main():
     )"""
     
     reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
-    #plot_prediction_errors(original_series_list, reconstructed_series, PREDICTION_SIZE)
+    plot_prediction_errors(original_series_list, reconstructed_series, PREDICTION_SIZE)
     print()
     print("MLP Final reconstruction")
     print(f"MLP Median SMAPE: {calculate_median_smape(original_series_list, reconstructed_series, PREDICTION_SIZE)}")
