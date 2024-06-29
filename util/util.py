@@ -96,6 +96,10 @@ def verify_preprocessing(time_series, trend_list, seasonal_list, residual_list):
         plt.legend()
         plt.show()
 
+
+
+
+
 def reconstruct_series(trend_list, seasonal_list, predicted_residuals, length):
 
     reconstructed_series = []
@@ -116,6 +120,8 @@ def reconstruct_series(trend_list, seasonal_list, predicted_residuals, length):
         reconstructed_series.append(future_series)
     
     return reconstructed_series
+
+
 
 
 def denormalize_predictions(predictions, scalers):
@@ -302,6 +308,12 @@ def evaluate_predictions(test_residuals_list, mlp_predicted_list, naive_predicte
         mlp_pred = pd.Series(mlp_pred).iloc[:len(actual)]
         naive_pred = pd.Series(naive_pred).iloc[:len(actual)]
 
+        # Print the values being compared for the first series only
+        if i == 0:
+            print(f"Series {i+1} - Actual: {actual.values}")
+            print(f"Series {i+1} - MLP Predicted: {mlp_pred.values}")
+            print(f"Series {i+1} - Naive Predicted: {naive_pred.values}")
+
         # Evaluate MLP predictions
         mlp_mse = mean_squared_error(actual, mlp_pred)
         mlp_mae = mean_absolute_error(actual, mlp_pred)
@@ -330,7 +342,6 @@ def evaluate_predictions(test_residuals_list, mlp_predicted_list, naive_predicte
     }
 
 
-
 def plot_combined_predictions(
         actual_full_list, 
         predicted_list, 
@@ -338,7 +349,8 @@ def plot_combined_predictions(
         original_series_list, 
         reconstructed_mlp_data, 
         reconstructed_naive_data, 
-        num_points
+        num_points, 
+        length=18
     ):
     num_series = len(original_series_list)
     for i in range(num_series):
@@ -357,6 +369,8 @@ def plot_combined_predictions(
         actual_data_to_plot = actual_full.iloc[-num_points:]
         prediction_index = actual_data_to_plot.index
 
+        # Print the length of the actual data used in the first subplot
+        print(f"Series {i+1} - Length of actual data for Subplot 1: {len(actual_data_to_plot)}")
 
         # Plot the actual values for the last num_points
         axes[0].plot(prediction_index, actual_data_to_plot, label='Actual', color='blue')
@@ -377,25 +391,28 @@ def plot_combined_predictions(
         axes[0].set_xlim(prediction_index[0], prediction_index[-1])
 
         # Subplot 2: Actual vs reconstructed MLP and Naive data
-        actual_data = original_series_list[i].iloc[-num_points:]
+        actual_data = original_series_list[i].iloc[-length:]
         mlp_predicted_data = reconstructed_mlp_data[i]
         naive_predicted_data = reconstructed_naive_data[i]
 
         # Ensure predicted data is of the right length
-        if len(mlp_predicted_data) != num_points or len(naive_predicted_data) != num_points:
-            raise ValueError(f"Length of predicted data does not match the required length ({num_points}).")
+        if len(mlp_predicted_data) != length or len(naive_predicted_data) != length:
+            raise ValueError(f"Length of predicted data does not match the required length ({length}).")
 
         # Use the same indices for both the actual and predicted data
         predicted_index = actual_data.index
+
+        # Print the length of the actual data used in the second subplot
+        print(f"Series {i+1} - Length of actual data for Subplot 2: {len(actual_data)}")
 
         # Plotting
         axes[1].plot(predicted_index, actual_data, label='Actual Data')
         axes[1].plot(predicted_index, mlp_predicted_data, label='MLP Predicted Data', linestyle='--')
         axes[1].plot(predicted_index, naive_predicted_data, label='Naive Predicted Data', linestyle='--')
-        axes[1].set_title(f'Actual vs Predicted - last {num_points} points reconstructed.')
+        axes[1].set_title(f'Actual vs Predicted - last {length} points reconstructed.')
         axes[1].set_xlabel('Time')
         axes[1].set_ylabel('Value')
-        axes[1].set_xlim(predicted_index[0], predicted_index[-1])
+        axes[1].legend()
 
         plt.tight_layout()
         plt.show()

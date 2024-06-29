@@ -134,7 +134,7 @@ def main():
     # Preprocess the data and create training, validation, and test datasets
     print('Creating datasets...')
     datasets = create_datasets(LOOK_BACK)
-    X_train, Y_train, X_val, Y_val, X_test, Y_test, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = datasets
+    X_train, Y_train, X_val, Y_val, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = datasets
     
     train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
    
