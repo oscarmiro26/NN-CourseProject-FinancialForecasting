@@ -4,27 +4,28 @@ import matplotlib.pyplot as plt
 from statsmodels.tsa.seasonal import seasonal_decompose
 import numpy as np
 import torch
+from sklearn.linear_model import LinearRegression
 from preprocessing.config_preprocessing import *
 from util.util import verify_preprocessing, create_dataset, plot_all_lists_after_preprocessing
 from sklearn.preprocessing import StandardScaler
 
-def preprocess_data(series, span, exclude_points=18):
+
+def preprocess_data(series, span, exclude_points=PREDICTION_SIZE):
     series = series.dropna().astype(float)
 
     # Exclude the last 'exclude_points' points for calculation
     truncated_series = series[:-exclude_points]
-
-    # Ensure the truncated series has enough observations
-    if len(truncated_series) < 2 * span:
-        # Handle short series by adjusting span or skipping the series
-        raise ValueError(f"The series must have at least {2 * span} observations excluding the last {exclude_points} points for decomposition. Current length: {len(truncated_series)}")
-
-    # Compute the exponentially weighted moving average (EWMA) as the trend
+    
+    # Compute the Exponential Moving Average (EMA) for the trend
     trend = truncated_series.ewm(span=span, adjust=False).mean()
 
-    # Predict the trend for the excluded points
-    last_trend_value = trend.iloc[-1]
-    trend_forecast = pd.Series([last_trend_value] * exclude_points, index=series.index[-exclude_points:])
+    # Predict the trend for the excluded points using a linear model
+    x = np.arange(len(truncated_series)).reshape(-1, 1)
+    y = trend.values
+    model = LinearRegression().fit(x, y)
+    x_future = np.arange(len(truncated_series), len(truncated_series) + exclude_points).reshape(-1, 1)
+    trend_forecast = model.predict(x_future)
+    trend_forecast = pd.Series(trend_forecast, index=series.index[-exclude_points:])
 
     # Subtract the trend from the truncated time-series
     detrended_series = truncated_series - trend
@@ -46,7 +47,8 @@ def preprocess_data(series, span, exclude_points=18):
 
     return series, trend, detrended_series, seasonal, residual
 
-def prepare_data(data, window=12, exclude_points=18):
+
+def prepare_data(data, window=12, exclude_points=PREDICTION_SIZE):
     original_series_list = []
     trend_list = []
     detrended_series_list = []
@@ -148,7 +150,7 @@ def create_datasets(look_back):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Preprocess the data
-    original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list = start_preprocess_data(data, look_back)
+    original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list = start_preprocess_data(data, TREND_CALCULATION_WINDOW)
     
     # Split the data
     train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test = split_data(residual_list, VALIDATION_SPLIT, PREDICTION_SIZE)
