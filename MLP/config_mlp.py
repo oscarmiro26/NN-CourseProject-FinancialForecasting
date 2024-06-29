@@ -15,10 +15,10 @@ LOSS_FUNCTION = smape_loss
 
 # Hyperparameters
 BATCH_SIZE = 64                 # Larger batch sizes can make training faster and more stable but may require more memory
-NUM_EPOCHS = 200                # Number of epochs for training
-HIDDEN_SIZE = 100                # Number of hidden units (only one hidden layer now)
+NUM_EPOCHS = 100                # Number of epochs for training
+HIDDEN_SIZE = 2                # Number of hidden units (only one hidden layer now)
 LEARNING_RATE = 0.001           # Learning rate for the optimizer
-PATIENCE = 10                   # Number of epochs with no improvement before stopping
+PATIENCE = 8                   # Number of epochs with no improvement before stopping
 
 # Grid search parameters
 GRID_SEARCH_PARAMS = {
