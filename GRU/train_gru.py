@@ -136,11 +136,7 @@ def main():
     train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
    
     print('Creating model...')
-    #model = ModelFactory.create_model(MODEL, LOOK_BACK, HIDDEN_SIZE_1, HIDDEN_SIZE_2, PREDICTED_DATA_POINTS).to(device)
-    model = ModelFactory.create_model('GRU', INPUT_SIZE, HIDDEN_SIZE_1, NUM_LAYERS, OUTPUT_SIZE, 0.0).to(device)
-    print(model)
-
-    start_to_train_model(model, train_loader, val_loader)
+    model = start_to_train_model(MODEL, train_loader, val_loader)
 
     print('Generating predictions...')
     predictions = generate_predictions(model, scaled_all_data, LOOK_BACK, PREDICTION_SIZE, device)
@@ -149,49 +145,29 @@ def main():
     denormalized_predictions = denormalize_predictions(predictions, scalers)
 
     print('Generating naive predictions...')
-<<<<<<< HEAD
-    naive_predictions = naive_predictor(eval_residuals_list, PREDICTION_SIZE)
-=======
     naive_preds = naive_predictor(residual_list, PREDICTION_SIZE)
 
     print('Evaluating predicted vs actual residual predictions...')
-    
-    eval_metrics = evaluate_predictions(test_residuals_list, denormalized_predictions, naive_preds)
+    mse_list, mae_list, r2_list, smape_list = evaluate_predictions(eval_residuals_list, denormalized_predictions)
 
-    # Print evaluation metrics for GRU
-    model_mse_list, model_mae_list, model_r2_list, model_smape_list = eval_metrics["model"]
-    print(f"{MODEL} Predictions:")
-    print(f"Mean MSE: {np.mean(model_mse_list):.4f}")
-    print(f"Mean MAE: {np.mean(model_mae_list):.4f}")
-    print(f"Mean R2: {np.mean(model_r2_list):.4f}")
-    print(f"Mean SMAPE: {np.mean(model_smape_list):.4f}")
-
-    # Print evaluation metrics for Naive
-    naive_mse_list, naive_mae_list, naive_r2_list, naive_smape_list = eval_metrics["naive"]
-    print("Naive Predictions:")
-    print(f"Mean MSE: {np.mean(naive_mse_list):.4f}")
-    print(f"Mean MAE: {np.mean(naive_mae_list):.4f}")
-    print(f"Mean R2: {np.mean(naive_r2_list):.4f}")
-    print(f"Mean SMAPE: {np.mean(naive_smape_list):.4f}")
-
-
->>>>>>> 362c04cda46f7d4c86e50750d0555f86a721ce2d
+    # Generate naive predictions
+    print('Generating naive predictions...')
+    naive_predictions = naive_predictor(eval_residuals_list, EVAL_PREDICTION_SIZE)
 
     print('Plotting residual predictions vs actual...')
     #plot_predictions(residual_list, denormalized_predictions, naive_preds, PREDICTION_SIZE, extra_context_points=30)
 
-<<<<<<< HEAD
     # Reconstructing the series
-    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
+    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, EVAL_PREDICTION_SIZE)
 
     # Uncomment the following line if you want to plot the actual vs predicted series
-    # plot_actual_vs_predicted(original_series, reconstructed_series, PREDICTION_SIZE)
+    # plot_actual_vs_predicted(original_series, reconstructed_series, EVAL_PREDICTION_SIZE)
     
     print("Final SMAPE score:")
-    print(calculate_median_smape(original_series, reconstructed_series, PREDICTION_SIZE))
+    print(calculate_median_smape(original_series, reconstructed_series, EVAL_PREDICTION_SIZE))
     
     # Calculate and print the median SMAPE of the naive residuals versus the true residuals
-    naive_smape_list = [calculate_median_smape([true], [naive], PREDICTION_SIZE) for true, naive in zip(eval_residuals_list, naive_predictions)]
+    naive_smape_list = [calculate_median_smape([true], [naive], EVAL_PREDICTION_SIZE) for true, naive in zip(eval_residuals_list, naive_predictions)]
 
     median_naive_smape = np.median(naive_smape_list)
     median_pred_smape = np.median(smape_list)
@@ -201,12 +177,6 @@ def main():
 
     print("Median SMAPE for model predictions:")
     print(median_pred_smape)
-=======
-    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
-    
-    print("Final SMAPE score:")
-    print(calculate_median_smape(original_series, reconstructed_series, PREDICTION_SIZE))
->>>>>>> 362c04cda46f7d4c86e50750d0555f86a721ce2d
 
 
 if __name__ == "__main__":
