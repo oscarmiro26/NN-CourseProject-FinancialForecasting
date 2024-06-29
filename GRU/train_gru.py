@@ -129,9 +129,13 @@ def main():
     train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
    
     print('Creating model...')
+<<<<<<< HEAD
     model = ModelFactory.create_model(MODEL, INPUT_SIZE, HIDDEN_SIZE_1, NUM_LAYERS, OUTPUT_SIZE, 0.0).to(device)
 
     start_to_train_model(model, train_loader, val_loader)
+=======
+    model = start_to_train_model(MODEL, train_loader, val_loader)
+>>>>>>> 4186ba19c435d071c2b77a2801d3398b22a7b640
 
 
     print('Generating predictions...')
@@ -149,6 +153,7 @@ def main():
     naive_preds = naive_predictor(residual_list, PREDICTION_SIZE)
 
     print('Evaluating predicted vs actual residual predictions...')
+<<<<<<< HEAD
     # Accessing the first series from all lists
     first_test_residuals = test_residuals_list[0]
     first_denormalized_predictions = denormalized_predictions[0]
@@ -199,6 +204,37 @@ def main():
     print(calculate_median_smape(original_series_list, reconstructed_series, PREDICTION_SIZE))
     print(calculate_mean_smape(original_series_list, reconstructed_series, PREDICTION_SIZE))
     #plot_actual_vs_predicted(original_series_list, reconstructed_series, PREDICTION_SIZE)
+=======
+    mse_list, mae_list, r2_list, smape_list = evaluate_predictions(eval_residuals_list, denormalized_predictions)
+
+    # Generate naive predictions
+    print('Generating naive predictions...')
+    naive_predictions = naive_predictor(eval_residuals_list, EVAL_PREDICTION_SIZE)
+
+    print('Plotting residual predictions vs actual...')
+    #plot_predictions(residual_list, denormalized_predictions, naive_preds, PREDICTION_SIZE, extra_context_points=30)
+
+    # Reconstructing the series
+    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, EVAL_PREDICTION_SIZE)
+
+    # Uncomment the following line if you want to plot the actual vs predicted series
+    # plot_actual_vs_predicted(original_series, reconstructed_series, EVAL_PREDICTION_SIZE)
+    
+    print("Final SMAPE score:")
+    print(calculate_median_smape(original_series, reconstructed_series, EVAL_PREDICTION_SIZE))
+    
+    # Calculate and print the median SMAPE of the naive residuals versus the true residuals
+    naive_smape_list = [calculate_median_smape([true], [naive], EVAL_PREDICTION_SIZE) for true, naive in zip(eval_residuals_list, naive_predictions)]
+
+    median_naive_smape = np.median(naive_smape_list)
+    median_pred_smape = np.median(smape_list)
+
+    print("Median SMAPE for naive predictions:")
+    print(median_naive_smape)
+
+    print("Median SMAPE for model predictions:")
+    print(median_pred_smape)
+>>>>>>> 4186ba19c435d071c2b77a2801d3398b22a7b640
 
     print("Final SMAPE score Naive:")
     reconstructed_naive_series = reconstruct_series(trend_list, seasonal_list, naive_preds, PREDICTION_SIZE)

@@ -8,6 +8,7 @@ import torch
 from preprocessing.config_preprocessing import *
 from util.util import verify_preprocessing, create_dataset, plot_all_lists_after_preprocessing
 from sklearn.preprocessing import StandardScaler
+import pickle
 
 def preprocess_data(series, span):
     series = series.dropna().astype(float)
@@ -65,29 +66,26 @@ def start_preprocess_data(data, window):
 
 
 
-def split_data(residual_list, val_split, eval_size):
-    print('  Creating data splits...')
-    
-    # Hold out the last `eval_size` values from each series in residual_list for final evaluation
-    # These values will be completely unseen during training and validation, providing an unbiased final test list.
-    test_residuals_list = [res[-eval_size:] for res in residual_list]
-    
-    # The remaining data after holding out the evaluation set (we remove the last `eval_size` points)
-    # This data will be used for creating the training and validation sets.
-    all_residuals_except_test = [res[:-eval_size] for res in residual_list]
+def split_data(residual_list, val_split, eval_size, split_save_path='input_data/data_splits.pkl'):
+    if os.path.exists(split_save_path):
+        print('Loading existing data splits...')
+        with open(split_save_path, 'rb') as f:
+            train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test = pickle.load(f)
+    else:
+        print('Creating new data splits...')
+        # Hold out the last `eval_size` values from each series in residual_list for final evaluation
+        test_residuals_list = [res[-eval_size:] for res in residual_list]
+        all_residuals_except_test = [res[:-eval_size] for res in residual_list]
+        val_size = int(len(all_residuals_except_test[0]) * val_split)
+        train_residuals_list = [res[:-val_size] for res in all_residuals_except_test]
+        val_residuals_list = [res[-val_size:] for res in all_residuals_except_test]
 
-    # Calculate the size of the validation set based on the percentage provided (val_split)
-    val_size = int(len(all_residuals_except_test[0]) * val_split)
-
-    # Split the remaining data into training set
-    # The training set is used to train the model.
-    train_residuals_list = [res[:-val_size] for res in all_residuals_except_test]
-
-    # Split the remaining data into validation set
-    # The validation set is used to tune hyperparameters and to avoid overfitting.
-    val_residuals_list = [res[-val_size:] for res in all_residuals_except_test]
+        # Save the splits to a file
+        with open(split_save_path, 'wb') as f:
+            pickle.dump((train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test), f)
     
     return train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test
+
 
 # Modify the normalize_data functions accordingly
 def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test):
@@ -146,15 +144,7 @@ def create_datasets(look_back):
     # Preprocess the data
     original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list = start_preprocess_data(data, look_back)
     
-    # Debug statements for preprocessing
-    for i, (original, trend, detrended, seasonal, residual) in enumerate(zip(original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list)):
-        print(f"Length of original_series_list[{i}]: {len(original)}")
-        print(f"Length of trend_list[{i}]: {len(trend)}")
-        print(f"Length of detrended_series_list[{i}]: {len(detrended)}")
-        print(f"Length of seasonal_list[{i}]: {len(seasonal)}")
-        print(f"Length of residual_list[{i}]: {len(residual)}")
-        break  # Only print the first series lengths
-
+    
     # Split the data
     train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test = split_data(residual_list, VALIDATION_SPLIT, PREDICTION_SIZE)
     
@@ -165,11 +155,6 @@ def create_datasets(look_back):
     # Normalize the data
     scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test)
 
-    # Debug statements for normalization
-    print("Length of scaled_train_data:", len(scaled_train_data))
-    print("Length of scaled_val_data:", len(scaled_val_data))
-    print("Length of scaled_test_data:", len(scaled_test_data))
-    print("Number of scaled sequences for all data:", len(scaled_all_residuals_list))
 
     # Create datasets
     X_train, Y_train = create_dataset(scaled_train_data, look_back)
