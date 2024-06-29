@@ -1,5 +1,7 @@
 import sys
 import os
+import logging
+import json
 
 # Add the project root directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -18,12 +20,26 @@ from models.model_factory import ModelFactory
 from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape, naive_predictor, plot_prediction_errors, calculate_mean_smape
 from GRU.config_gru import *
 
+# Configure logging
+logging.basicConfig(filename='training.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss_function, model_save_path, patience=5):
+def log_losses(train_losses, val_losses, params):
+    log_entry = {
+        "params": params,
+        "train_losses": train_losses,
+        "val_losses": val_losses
+    }
+    with open('losses.json', 'a') as f:
+        f.write(json.dumps(log_entry) + '\n')
+
+def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss_function, model_save_path, patience=20):
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     best_val_loss = float('inf')
     epochs_without_improvement = 0
     total_iterations = len(train_loader) * num_epochs  # Total number of iterations
+
+    train_losses = []
+    val_losses = []
 
     pbar = tqdm(total=total_iterations, desc="Training Progress", leave=True)
     for epoch in range(num_epochs):
@@ -41,6 +57,7 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss
             pbar.update(1)
         
         train_loss /= len(train_loader)
+        train_losses.append(train_loss)
 
         model.eval()
         val_loss = 0.0
@@ -50,10 +67,11 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss
                 val_Y = val_Y.view(-1)  # Ensure target tensor is flattened
                 val_loss += loss_function(val_outputs, val_Y).item()
         val_loss /= len(val_loader)
+        val_losses.append(val_loss)
 
         # Update the progress bar description to include the current epoch's training and validation losses
         pbar.set_description(f"Epoch {epoch+1}/{num_epochs} | Training: {train_loss:.4f} | Val: {val_loss:.4f}")
-        
+
         # Save the model if the validation loss has improved
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -67,6 +85,7 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss
 
     pbar.close()
 
+    return train_losses, val_losses, best_val_loss
 
 def generate_predictions(model, scaled_all_data, look_back, prediction_size, device):
     model.eval()  # Set the model to evaluation mode
@@ -99,23 +118,51 @@ def generate_predictions(model, scaled_all_data, look_back, prediction_size, dev
 
     return all_predictions  # Return the list of all predictions for all sequences
 
-
-def start_to_train_model(model, train_loader, val_loader):
+def start_to_train_model(model, train_loader, val_loader, num_epochs, learning_rate):
     # Train the model if the TRAIN_MODEL flag is set to True
     if TRAIN_MODEL:
         print('Training model...')
-        train_model(model, train_loader, val_loader, NUM_EPOCHS, LEARNING_RATE, LOSS_FUNCTION, MODEL_SAVE_PATH, PATIENCE)
+        train_losses, val_losses, best_val = train_model(model, train_loader, val_loader, num_epochs, learning_rate, LOSS_FUNCTION, MODEL_SAVE_PATH, PATIENCE)
     else:
         # Load the pre-trained model weights
         print('Loading saved model...')
         model.load_state_dict(torch.load(MODEL_SAVE_PATH))
+        train_losses, val_losses = [], []
 
+    return train_losses, val_losses, best_val
 
-def create_dataloaders(X_train, Y_train, X_val, Y_val):
-     # Create data loaders for training and validation sets
-    train_loader = DataLoader(TensorDataset(X_train, Y_train), batch_size=BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(TensorDataset(X_val, Y_val), batch_size=BATCH_SIZE, shuffle=False)
-    return train_loader, val_loader
+def hyperparameter_tuning(train_loader, val_loader):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    best_val_loss = float('inf')
+    best_model = None
+    
+    dropout_values = [0.2]#[0.0, 0.2, 0.5, 0.8]
+    learning_rate_values = [0.005]#[0.0001, 0.005, 0.01, 0.05, 0.1]
+    num_layers_values = [3]#[1, 2, 3]
+    hidden_size_values = [64]#[32, 64, 128]
+    
+    for dropout in dropout_values:
+        for lr in learning_rate_values:
+            for num_layers in num_layers_values:
+                for hidden_size in hidden_size_values:
+                    print(f"Training with dropout={dropout}, learning_rate={lr}, num_layers={num_layers}, hidden_size={hidden_size}")
+
+                    model = ModelFactory.create_model(MODEL, INPUT_SIZE, hidden_size, num_layers, OUTPUT_SIZE, dropout).to(device)
+
+                    train_losses, val_losses, final_val_loss = start_to_train_model(model, train_loader, val_loader, NUM_EPOCHS, lr)
+                    
+                    print(f"Validation Loss: {final_val_loss:.4f}")
+                    logging.info(f"Hyperparameters: dropout={dropout}, learning_rate={lr}, num_layers={num_layers}, hidden_size={hidden_size}, Validation Loss={final_val_loss:.4f}")
+
+                    # Log losses
+                    log_losses(train_losses, val_losses, {"dropout": dropout, "learning_rate": lr, "num_layers": num_layers, "hidden_size": hidden_size})
+
+                    if final_val_loss < best_val_loss:
+                        best_val_loss = final_val_loss
+                        best_model = model
+
+    return best_model
 
 
 def main():
@@ -125,26 +172,21 @@ def main():
     print('Creating datasets...')
     datasets = create_datasets(LOOK_BACK)
     X_train, Y_train, X_val, Y_val, X_test, Y_test, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = datasets
+
+    # Create data loaders for training and validation sets
+    train_loader = DataLoader(TensorDataset(X_train, Y_train), batch_size=BATCH_SIZE, shuffle=False)
+    val_loader = DataLoader(TensorDataset(X_val, Y_val), batch_size=BATCH_SIZE, shuffle=False)
     
-    train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
-   
-    print('Creating model...')
-<<<<<<< HEAD
-    model = ModelFactory.create_model(MODEL, INPUT_SIZE, HIDDEN_SIZE_1, NUM_LAYERS, OUTPUT_SIZE, 0.0).to(device)
-
-    start_to_train_model(model, train_loader, val_loader)
-=======
-    model = start_to_train_model(MODEL, train_loader, val_loader)
->>>>>>> 4186ba19c435d071c2b77a2801d3398b22a7b640
-
-
+    # Train
+    model = hyperparameter_tuning(train_loader, val_loader)
+    
+    # Use the test set for the final evaluation
     print('Generating predictions...')
     predictions = generate_predictions(model, scaled_all_residuals_list, LOOK_BACK, PREDICTION_SIZE, device)
     
     if not predictions:
         print("No predictions generated.")
         return
-  
     
     print('Denormalizing predictions...')
     denormalized_predictions = denormalize_predictions(predictions, test_scalers)
@@ -153,41 +195,35 @@ def main():
     naive_preds = naive_predictor(residual_list, PREDICTION_SIZE)
 
     print('Evaluating predicted vs actual residual predictions...')
-    mse_list, mae_list, r2_list, smape_list = evaluate_predictions(eval_residuals_list, denormalized_predictions)
+    eval_metrics = evaluate_predictions(test_residuals_list, denormalized_predictions, naive_preds)
 
-    # Generate naive predictions
-    print('Generating naive predictions...')
-    naive_predictions = naive_predictor(eval_residuals_list, EVAL_PREDICTION_SIZE)
+    # Print evaluation metrics for MLP
+    mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list = eval_metrics["model"]
+    print(f"{MODEL} Predictions:")
+    print(f"Mean MSE: {np.mean(mlp_mse_list):.4f}")
+    print(f"Mean MAE: {np.mean(mlp_mae_list):.4f}")
+    print(f"Mean R2: {np.mean(mlp_r2_list):.4f}")
+    print(f"Mean SMAPE: {np.mean(mlp_smape_list):.4f}")
 
-    print('Plotting residual predictions vs actual...')
-    #plot_predictions(residual_list, denormalized_predictions, naive_preds, PREDICTION_SIZE, extra_context_points=30)
+    # Print evaluation metrics for Naive
+    naive_mse_list, naive_mae_list, naive_r2_list, naive_smape_list = eval_metrics["naive"]
+    print("Naive Predictions:")
+    print(f"Mean MSE: {np.mean(naive_mse_list):.4f}")
+    print(f"Mean MAE: {np.mean(naive_mae_list):.4f}")
+    print(f"Mean R2: {np.mean(naive_r2_list):.4f}")
+    print(f"Mean SMAPE: {np.mean(naive_smape_list):.4f}")
 
-    # Reconstructing the series
-    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, EVAL_PREDICTION_SIZE)
-
-    # Uncomment the following line if you want to plot the actual vs predicted series
-    # plot_actual_vs_predicted(original_series, reconstructed_series, EVAL_PREDICTION_SIZE)
+    reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
     
-    print("Final SMAPE score:")
-    print(calculate_median_smape(original_series, reconstructed_series, EVAL_PREDICTION_SIZE))
-    
-    # Calculate and print the median SMAPE of the naive residuals versus the true residuals
-    naive_smape_list = [calculate_median_smape([true], [naive], EVAL_PREDICTION_SIZE) for true, naive in zip(eval_residuals_list, naive_predictions)]
-
-    median_naive_smape = np.median(naive_smape_list)
-    median_pred_smape = np.median(smape_list)
-
-    print("Median SMAPE for naive predictions:")
-    print(median_naive_smape)
-
-    print("Median SMAPE for model predictions:")
-    print(median_pred_smape)
+    print("Final SMAPE score MLP:")
+    print(calculate_median_smape(original_series_list, reconstructed_series, PREDICTION_SIZE))
+    print(calculate_mean_smape(original_series_list, reconstructed_series, PREDICTION_SIZE))
 
     print("Final SMAPE score Naive:")
     reconstructed_naive_series = reconstruct_series(trend_list, seasonal_list, naive_preds, PREDICTION_SIZE)
     print(calculate_median_smape(original_series_list, reconstructed_naive_series, PREDICTION_SIZE))
     print(calculate_mean_smape(original_series_list, reconstructed_naive_series, PREDICTION_SIZE))
-    #plot_actual_vs_predicted(original_series_list, reconstructed_naive_series, PREDICTION_SIZE)
+
 
 if __name__ == "__main__":
     main()

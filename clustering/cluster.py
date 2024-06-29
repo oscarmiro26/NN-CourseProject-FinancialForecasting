@@ -31,6 +31,8 @@ def cluster_data(data_file, window, n_clusters=3, val_split=0.2, eval_size=12):
         train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test
     )
 
+    
+
     # Apply K-Means clustering
     kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init=10).fit(scaled_train_data)
 

@@ -302,15 +302,6 @@ def evaluate_predictions(test_residuals_list, model_predicted_list, naive_predic
         model_pred = pd.Series(model_pred).iloc[:len(actual)]
         naive_pred = pd.Series(naive_pred).iloc[:len(actual)]
 
-<<<<<<< HEAD
-        # Print the values being compared for the first series only
-        if i == 0:
-            print(f"Series {i+1} - Actual: {actual.values}")
-            print(f"Series {i+1} - MODEL Predicted: {model_pred.values}")
-            print(f"Series {i+1} - Naive Predicted: {naive_pred.values}")
-
-=======
->>>>>>> 4186ba19c435d071c2b77a2801d3398b22a7b640
         # Evaluate MLP predictions
         model_mse = mean_squared_error(actual, model_pred)
         model_mae = mean_absolute_error(actual, model_pred)
