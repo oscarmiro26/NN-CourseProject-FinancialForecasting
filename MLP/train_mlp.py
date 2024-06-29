@@ -161,7 +161,7 @@ def main():
     eval_metrics = evaluate_predictions(test_residuals_list, denormalized_predictions, naive_preds)
 
     # Print evaluation metrics for MLP
-    mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list = eval_metrics["mlp"]
+    mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list = eval_metrics["model"]
     print(f"MLP RESIDUAL MEAN SMAPE: {np.mean(mlp_smape_list):.4f}")
 
     # Print evaluation metrics for Naive
@@ -180,7 +180,7 @@ def main():
     )"""
     
     reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
-    plot_prediction_errors(original_series_list, reconstructed_series, PREDICTION_SIZE)
+    #plot_prediction_errors(original_series_list, reconstructed_series, PREDICTION_SIZE)
     print()
     print("MLP Final reconstruction")
     print(f"MLP Median SMAPE: {calculate_median_smape(original_series_list, reconstructed_series, PREDICTION_SIZE)}")
@@ -195,7 +195,7 @@ def main():
     
     #plot_actual_vs_predicted(original_series_list, reconstructed_series, reconstructed_naive_series, PREDICTION_SIZE)
  
-    plot_combined_predictions(
+    """plot_combined_predictions(
         residual_list, 
         denormalized_predictions, 
         naive_preds, 
@@ -203,7 +203,7 @@ def main():
         reconstructed_series, 
         reconstructed_naive_series, 
         num_points=PREDICTION_SIZE
-    )
+    )"""
 
 if __name__ == "__main__":
     main()
