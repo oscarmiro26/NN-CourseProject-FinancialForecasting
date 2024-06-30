@@ -160,7 +160,7 @@ def create_datasets(look_back):
 
     print(len(scaled_train_residuals_list), len(scaled_val_residuals_list))
 
-    for series, scaled_train_data, scaled_val_data in enumerate(zip(scaled_train_residuals_list, scaled_val_residuals_list)):
+    for series, (scaled_train_data, scaled_val_data) in enumerate(zip(scaled_train_residuals_list, scaled_val_residuals_list)):
         if len(scaled_train_data) <= look_back or len(scaled_val_data) <= look_back:
             print(f'Skipping series {series} because a split size is smaller than the look back')
             continue
