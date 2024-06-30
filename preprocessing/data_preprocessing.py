@@ -119,29 +119,21 @@ def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list
         scaled_train_residuals_list.append(scaled_train_res)
         train_scalers.append(train_scaler)
         
-        # Fit the scaler on the validation data and transform it
-        val_scaler = MinMaxScaler(feature_range=(-1, 1))
-        scaled_val_res = val_scaler.fit_transform(val_res_np)
+        # Transform the validation data using the scaler fitted on the training data
+        scaled_val_res = train_scaler.transform(val_res_np)
         scaled_val_residuals_list.append(scaled_val_res)
-        val_scalers.append(val_scaler)
+        val_scalers.append(train_scaler)
 
-        # Fit the scaler on the test data and transform it
-        test_scaler = MinMaxScaler(feature_range=(-1, 1))
-        scaled_test_res = test_scaler.fit_transform(test_res_np)
+        # Transform the test data using the scaler fitted on the training data
+        scaled_test_res = train_scaler.transform(test_res_np)
         scaled_test_residuals_list.append(scaled_test_res)
-        test_scalers.append(test_scaler)
+        test_scalers.append(train_scaler)
 
         # Transform all residuals using the scaler fitted on the training data
         scaled_all_res = train_scaler.transform(all_res_np)
         scaled_all_residuals_list.append(scaled_all_res)
 
-    # Concatenate the scaled data
-    scaled_train_data = np.concatenate(scaled_train_residuals_list)
-    scaled_val_data = np.concatenate(scaled_val_residuals_list)
-    scaled_test_data = np.concatenate(scaled_test_residuals_list)
-
-    return scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers
-
+    return scaled_train_residuals_list, scaled_val_residuals_list, scaled_test_residuals_list, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers
 
 def create_datasets(look_back):
     # Load the dataset from the specified CSV file
@@ -160,21 +152,40 @@ def create_datasets(look_back):
         print(f"Split lengths for sequence {i}: train={len(train_residuals_list[i])}, val={len(val_residuals_list[i])}, test={len(test_residuals_list[i])}")
 
     # Normalize the data
-    scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test)
+    scaled_train_residuals_list, scaled_val_residuals_list, scaled_test_residuals_list, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test)
 
     # Create datasets for training and validation
-    X_train, Y_train = create_dataset(scaled_train_data, look_back)
-    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-    print("X_train shape:", X_train.shape)
+    X_train_list, Y_train_list = [], []
+    X_val_list, Y_val_list = [], []
 
-    X_val, Y_val = create_dataset(scaled_val_data, look_back)
-    X_val = np.reshape(X_val, (X_val.shape[0], X_val.shape[1], 1))
-    print("X_val shape:", X_val.shape)
+    print(len(scaled_train_residuals_list), len(scaled_val_residuals_list))
+
+    for series, scaled_train_data, scaled_val_data in enumerate(zip(scaled_train_residuals_list, scaled_val_residuals_list)):
+        if len(scaled_train_data) <= look_back or len(scaled_val_data) <= look_back:
+            print(f'Skipping series {series} because a split size is smaller than the look back')
+            continue
+                
+        X_train, Y_train = create_dataset(scaled_train_data, look_back)
+        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+        X_train_list.append(X_train)
+        Y_train_list.append(Y_train)
+
+
+        X_val, Y_val = create_dataset(scaled_val_data, look_back)
+        X_val = np.reshape(X_val, (X_val.shape[0], X_val.shape[1], 1))
+        X_val_list.append(X_val)
+        Y_val_list.append(Y_val)
+    
+    # Concatenate all the training and validation sets
+    X_train = np.concatenate(X_train_list)
+    Y_train = np.concatenate(Y_train_list)
+    X_val = np.concatenate(X_val_list)
+    Y_val = np.concatenate(Y_val_list)
     
     # Convert to torch tensors
     X_train = torch.Tensor(X_train).to(device)
-    X_val = torch.Tensor(X_val).to(device)
     Y_train = torch.Tensor(Y_train).to(device)
+    X_val = torch.Tensor(X_val).to(device)
     Y_val = torch.Tensor(Y_val).to(device)
 
     # Return the created datasets and additional information
