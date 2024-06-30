@@ -5,7 +5,7 @@ import torch.nn as nn
 
 base_path = os.path.dirname(os.path.abspath(__file__))
 
-LOOK_BACK = 27                  # Number of past datapoints to consider for training at once
+LOOK_BACK = 12                  # Number of past datapoints to consider for training at once
 PREDICTED_DATA_POINTS = 1
 
 MODEL = 'GRU'                   # Model we use

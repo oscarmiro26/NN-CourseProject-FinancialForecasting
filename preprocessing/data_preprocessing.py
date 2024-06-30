@@ -149,7 +149,8 @@ def create_datasets(look_back):
     
     # Debug statements for data splitting
     for i in range(len(train_residuals_list)):
-        print(f"Split lengths for sequence {i}: train={len(train_residuals_list[i])}, val={len(val_residuals_list[i])}, test={len(test_residuals_list[i])}")
+        #print(f"Split lengths for sequence {i}: train={len(train_residuals_list[i])}, val={len(val_residuals_list[i])}, test={len(test_residuals_list[i])}")
+        pass
 
     # Normalize the data
     scaled_train_residuals_list, scaled_val_residuals_list, scaled_test_residuals_list, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test)
@@ -157,8 +158,6 @@ def create_datasets(look_back):
     # Create datasets for training and validation
     X_train_list, Y_train_list = [], []
     X_val_list, Y_val_list = [], []
-
-    print(len(scaled_train_residuals_list), len(scaled_val_residuals_list))
 
     for series, (scaled_train_data, scaled_val_data) in enumerate(zip(scaled_train_residuals_list, scaled_val_residuals_list)):
         if len(scaled_train_data) <= look_back or len(scaled_val_data) <= look_back:

@@ -1,5 +1,7 @@
 import sys
 import os
+import itertools
+import json
 
 # Add the project root directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -19,14 +21,16 @@ from models.model_factory import ModelFactory
 from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape, naive_predictor, plot_prediction_errors, calculate_mean_smape, plot_combined_predictions
 from GRU.config_gru import *
 
-
+# Define the training function
 def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss_function, model_save_path, patience=5):
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)    
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     best_val_loss = float('inf')
     epochs_without_improvement = 0
     total_iterations = len(train_loader) * num_epochs  # Total number of iterations
 
     pbar = tqdm(total=total_iterations, desc="Training Progress", leave=True)
+    train_losses = []
+    val_losses = []
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
@@ -42,6 +46,7 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss
             pbar.update(1)
         
         train_loss /= len(train_loader)
+        train_losses.append(train_loss)
 
         model.eval()
         val_loss = 0.0
@@ -51,6 +56,7 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss
                 val_Y = val_Y.view(-1)  # Ensure target tensor is flattened
                 val_loss += loss_function(val_outputs, val_Y).item()
         val_loss /= len(val_loader)
+        val_losses.append(val_loss)
 
         # Update the progress bar description to include the current epoch's training and validation losses
         pbar.set_description(f"Epoch {epoch+1}/{num_epochs} | Training: {train_loss:.4f} | Val: {val_loss:.4f}")
@@ -68,11 +74,56 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss
 
     pbar.close()
     print()
-    print()
     print(f"BEST Validation Loss: {best_val_loss:.4f}")  # Print the best validation loss after training stops
     print()
+    return train_losses, val_losses
 
+# Function to perform grid search
+def grid_search(lookback_values, learning_rates, dropouts, num_layers_list, num_nodes_list, num_epochs, loss_function, model_save_path, patience=5):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    best_params = None
+    best_val_loss = float('inf')
+    results = []
 
+    for lookback in lookback_values:
+        print(f"Creating datasets for lookback={lookback}...")
+        datasets = create_datasets(lookback)
+        X_train, Y_train, X_val, Y_val, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = datasets
+
+        for lr, dropout, num_layers, num_nodes in itertools.product(learning_rates, dropouts, num_layers_list, num_nodes_list):
+            print(f"Training with lookback={lookback}, lr={lr}, dropout={dropout}, num_layers={num_layers}, num_nodes={num_nodes}")
+
+            # Create the model
+            model = ModelFactory.create_model(MODEL, 1, num_nodes, num_layers, 1, dropout).to(device)
+
+            # Create data loaders
+            train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
+
+            train_losses, val_losses = train_model(model, train_loader, val_loader, num_epochs, lr, loss_function, model_save_path, patience)
+
+            results.append({
+                'lookback': lookback,
+                'learning_rate': lr,
+                'dropout': dropout,
+                'num_layers': num_layers,
+                'num_nodes': num_nodes,
+                'train_losses': train_losses,
+                'val_losses': val_losses
+            })
+
+            if val_losses[-1] < best_val_loss:
+                best_val_loss = val_losses[-1]
+                best_params = (lookback, lr, dropout, num_layers, num_nodes)
+                best_model_state = model.state_dict()
+                best_dataset = datasets
+
+    print(f"Best params: {best_params} with validation loss: {best_val_loss:.4f}")
+    return results, best_params, best_model_state, best_dataset
+
+# Function to save results to a log file
+def save_results_to_log(results, log_file_path):
+    with open(log_file_path, 'w') as log_file:
+        json.dump(results, log_file)
 
 
 def generate_predictions(model, scaled_all_data, look_back, prediction_size, device):
@@ -132,78 +183,61 @@ def create_dataloaders(X_train, Y_train, X_val, Y_val):
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Preprocess the data and create training, validation, and test datasets
-    print('Creating datasets...')
-    datasets = create_datasets(LOOK_BACK)
-    X_train, Y_train, X_val, Y_val, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = datasets
-    
-    train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
-   
+    # Define hyperparameter grid
+    lookback_values = [4, 5]#, 10, 20]
+    learning_rates = [0.001]#, 0.01, 0.1]
+    dropouts = [0.1]#, 0.3, 0.5]
+    num_layers_list = [1]#, 2, 3]
+    num_nodes_list = [50, 100]#, 200]
+
+    # Perform grid search
+    print('Starting grid search...')
+    results, best_params, best_model_state, best_dataset = grid_search(lookback_values, learning_rates, dropouts, num_layers_list, num_nodes_list, NUM_EPOCHS, LOSS_FUNCTION, MODEL_SAVE_PATH, PATIENCE)
+
+    # Save results to log file
+    log_file_path = 'grid_search_results.json'
+    save_results_to_log(results, log_file_path)
+    print(f'Results saved to {log_file_path}')
+
+    # Evaluate best model
+    best_lookback, best_lr, best_dropout, best_num_layers, best_num_nodes = best_params
     print('Creating model...')
-    model = ModelFactory.create_model(MODEL, INPUT_SIZE, HIDDEN_SIZE_1, NUM_LAYERS, OUTPUT_SIZE, 0.0).to(device)
+    best_model = ModelFactory.create_model(MODEL, 1, best_num_nodes, best_num_layers, 1, best_dropout).to(device)
+    best_model.load_state_dict(best_model_state)
 
-    start_to_train_model(model, train_loader, val_loader)
-
+    X_train, Y_train, X_val, Y_val, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = best_dataset
 
     print('Generating predictions for comparison with test set...')
-    predictions = generate_predictions(model, scaled_all_residuals_list, LOOK_BACK, PREDICTION_SIZE, device)
+    predictions = generate_predictions(best_model, scaled_all_residuals_list, best_lookback, PREDICTION_SIZE, device)
     
     if not predictions:
         print("No predictions generated.")
         return
 
     denormalized_predictions = denormalize_predictions(predictions, test_scalers)
-
     naive_preds = naive_predictor(residual_list, PREDICTION_SIZE)
-
-    
-
     eval_metrics = evaluate_predictions(test_residuals_list, denormalized_predictions, naive_preds)
 
-    # Print evaluation metrics for MLP
-    mlp_mse_list, mlp_mae_list, mlp_r2_list, mlp_smape_list = eval_metrics["model"]
-    print(f"{MODEL} RESIDUAL MEAN SMAPE: {np.mean(mlp_smape_list):.4f}")
+    # Print evaluation metrics for GRU
+    gru_mse_list, gru_mae_list, gru_r2_list, gru_smape_list = eval_metrics["model"]
+    print(f"{MODEL} RESIDUAL MEAN SMAPE: {np.mean(gru_smape_list):.4f}")
 
     # Print evaluation metrics for Naive
     naive_mse_list, naive_mae_list, naive_r2_list, naive_smape_list = eval_metrics["naive"]
-
     print(f"NAIVE RESIDUAL MEAN SMAPE: {np.mean(naive_smape_list):.4f}")
 
-    #print('Plotting residual predictions vs actual...')
-    #plot_prediction_errors(residual_list, denormalized_predictions, PREDICTION_SIZE)
-    """plot_predictions(
-        actual_full_list=residual_list,  # The actual full residuals
-        predicted_list=denormalized_predictions,  # The denormalized model predictions
-        naive_predictions=naive_preds,  # The naive predictions
-        num_points=PREDICTION_SIZE,  # The number of prediction points
-        extra_context_points=30  # The number of extra context points (adjust as needed)
-    )"""
-    
     reconstructed_series = reconstruct_series(trend_list, seasonal_list, denormalized_predictions, PREDICTION_SIZE)
-    #plot_prediction_errors(original_series_list, reconstructed_series, PREDICTION_SIZE)
     print()
     print(f"{MODEL} Final reconstruction")
     print(f"{MODEL} Median SMAPE: {calculate_median_smape(original_series_list, reconstructed_series, PREDICTION_SIZE)}")
     print(f"{MODEL} Mean SMAPE: {calculate_mean_smape(original_series_list, reconstructed_series, PREDICTION_SIZE)}")
-    #plot_actual_vs_predicted(original_series_list, reconstructed_series, PREDICTION_SIZE)
 
     print()
     print("NAIVE: Final reconstruction")
     reconstructed_naive_series = reconstruct_series(trend_list, seasonal_list, naive_preds, PREDICTION_SIZE)
     print(f"NAIVE Median SMAPE: {calculate_median_smape(original_series_list, reconstructed_naive_series, PREDICTION_SIZE)}")
     print(f"NAIVE Mean SMAPE: {calculate_mean_smape(original_series_list, reconstructed_naive_series, PREDICTION_SIZE)}")
-    
-    #plot_actual_vs_predicted(original_series_list, reconstructed_series, reconstructed_naive_series, PREDICTION_SIZE)
- 
-    """plot_combined_predictions(
-        residual_list, 
-        denormalized_predictions, 
-        naive_preds, 
-        original_series_list, 
-        reconstructed_series, 
-        reconstructed_naive_series, 
-        num_points=PREDICTION_SIZE
-    )"""
+
 
 if __name__ == "__main__":
     main()

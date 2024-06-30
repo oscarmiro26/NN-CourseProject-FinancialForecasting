@@ -5,7 +5,7 @@ import torch.nn as nn
 from util.util import smape_loss
 base_path = os.path.dirname(os.path.abspath(__file__))
 
-LOOK_BACK = 27                 # Number of past datapoints to consider for training at once
+LOOK_BACK = 3                 # Number of past datapoints to consider for training at once
 PREDICTED_DATA_POINTS = 1
 
 MODEL = 'MLP'                   # Model we use
@@ -18,7 +18,7 @@ BATCH_SIZE = 64                 # Larger batch sizes can make training faster an
 NUM_EPOCHS = 100                # Number of epochs for training
 HIDDEN_SIZE = 2                # Number of hidden units (only one hidden layer now)
 LEARNING_RATE = 0.001           # Learning rate for the optimizer
-PATIENCE = 8                   # Number of epochs with no improvement before stopping
+PATIENCE = 50                   # Number of epochs with no improvement before stopping
 
 # Grid search parameters
 GRID_SEARCH_PARAMS = {
