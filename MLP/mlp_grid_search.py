@@ -184,9 +184,9 @@ def main():
 
     # Define hyperparameter grid
     lookback_values = [4, 8, 12, 16]
-    weight_decay_list = [1, 0.1, 0.001]
+    weight_decay_list = [0.0001, 0.00001, 0.000001]
     num_layers_list = [1, 2]
-    num_nodes_list = [2, 4, 8, 16, 32, 64]
+    num_nodes_list = [2, 4, 8, 16, 32, 64, 128]
 
     # Perform grid search
     print('Starting grid search...')

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from preprocessing.data_preprocessing import *
 from models.model_factory import ModelFactory
-from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape, naive_predictor, plot_prediction_errors, calculate_mean_smape, plot_combined_predictions
+from util.util import plot_predictions, denormalize_predictions, evaluate_predictions, reconstruct_series, plot_actual_vs_predicted, calculate_median_smape, naive_predictor, plot_prediction_errors, calculate_mean_smape, plot_combined_predictions, plot_entire_series
 from config_mlp import *
 
 
@@ -140,7 +140,7 @@ def main():
     train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
    
     print('Creating model...')
-    model = ModelFactory.create_model('MLP', LOOK_BACK, HIDDEN_SIZE, PREDICTED_DATA_POINTS).to(device)
+    model = ModelFactory.create_model('MLP', LOOK_BACK, 256, PREDICTED_DATA_POINTS, 2).to(device)
 
     start_to_train_model(model, train_loader, val_loader)
 
@@ -193,7 +193,7 @@ def main():
     print(f"NAIVE Median SMAPE: {calculate_median_smape(original_series_list, reconstructed_naive_series, PREDICTION_SIZE)}")
     print(f"NAIVE Mean SMAPE: {calculate_mean_smape(original_series_list, reconstructed_naive_series, PREDICTION_SIZE)}")
     
-    #plot_actual_vs_predicted(original_series_list, reconstructed_series, reconstructed_naive_series, PREDICTION_SIZE)
+    plot_actual_vs_predicted(original_series_list, reconstructed_series, reconstructed_naive_series, PREDICTION_SIZE)
  
     """plot_combined_predictions(
         residual_list, 
@@ -205,5 +205,6 @@ def main():
         num_points=PREDICTION_SIZE
     )"""
 
+    #plot_entire_series(original_series_list, reconstructed_series, reconstructed_naive_series, len(original_series_list[0]) - PREDICTION_SIZE)
 if __name__ == "__main__":
     main()

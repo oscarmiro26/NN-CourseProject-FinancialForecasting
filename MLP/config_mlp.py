@@ -5,7 +5,7 @@ import torch.nn as nn
 from util.util import smape_loss
 base_path = os.path.dirname(os.path.abspath(__file__))
 
-LOOK_BACK = 3                 # Number of past datapoints to consider for training at once
+LOOK_BACK = 8                 # Number of past datapoints to consider for training at once
 PREDICTED_DATA_POINTS = 1
 
 MODEL = 'MLP'                   # Model we use

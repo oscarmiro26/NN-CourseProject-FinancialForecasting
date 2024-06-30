@@ -160,9 +160,10 @@ def plot_predictions(actual_full_list, predicted_list, naive_predictions, num_po
         plt.title(f'Actual vs Predicted for Series {i+1} for last {num_points} points')
         plt.xlabel('Data Point Index')
         plt.ylabel('Value')
-        plt.xticks(actual_range)  # Ensure x-axis ticks are the actual data point indices
+        plt.xticks(actual_range[::5])  # Set x-axis ticks to every 5th point in the actual data point indices
         plt.xlim(min(actual_range), max(actual_range))  # Set x-axis limits to the range of actual data point indices
         plt.show()
+
 
 def naive_predictor(actual_residuals, prediction_size):
     naive_predictions = []
@@ -187,6 +188,8 @@ def plot_all_lists_after_preprocessing(original_series_list, trend_list, detrend
         plt.show()
 
     for i in range(len(original_series_list)):
+        print(f'Plotting list number {i}')
+
         # Plot original series with trend
         plot_series_with_trend(original_series_list[i], trend_list[i], 'Original Series with Trend', 'Original Series', 'Trend (Moving Average)', color_original='blue', color_trend='red')
 
@@ -410,3 +413,34 @@ def plot_combined_predictions(
 
         plt.tight_layout()
         plt.show()
+
+
+def plot_entire_series(original_series_list, reconstructed_series, reconstructed_naive_series, prediction_size):
+    for i, (original, reconstructed, naive_reconstructed) in enumerate(zip(original_series_list, reconstructed_series, reconstructed_naive_series)):
+        plt.figure(figsize=(15, 7))
+        
+        plt.plot(range(len(original)), original, label='Original', color='blue')
+        
+        # Calculate the starting position of the reconstructed series
+        prediction_start = len(original) - prediction_size
+        
+        # Create the x values for the reconstructed series starting from the prediction point
+        x_reconstructed = range(prediction_start, prediction_start + len(reconstructed))
+        
+        plt.plot(x_reconstructed, reconstructed, label='Reconstructed', linestyle='--', color='orange')
+        plt.plot(x_reconstructed, naive_reconstructed, label='Naive Reconstructed', linestyle='--', color='green')
+        
+        # Add a vertical red line to indicate the start of the prediction
+        plt.axvline(x=prediction_start, color='red', linestyle='--', label='Prediction Start')
+        
+        plt.title(f'Original vs Reconstructed Series {i+1}')
+        plt.xlabel('Data Point Index')
+        plt.ylabel('Value')
+        plt.legend()
+        
+        # Set x-axis ticks to every 5th point
+        x_ticks = np.arange(0, len(original), 5)
+        plt.xticks(x_ticks)
+        
+        plt.show()
+
