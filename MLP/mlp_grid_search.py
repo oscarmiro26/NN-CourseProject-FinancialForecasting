@@ -91,7 +91,7 @@ def grid_search(lookback_values, weight_decays, num_layers_list, num_nodes_list,
         X_train, Y_train, X_val, Y_val, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = datasets
 
         for weight_decay, num_layers, num_nodes in itertools.product(weight_decays, num_layers_list, num_nodes_list):
-            print(f"Training with lookback={lookback}, lr={lr}, num_layers={num_layers}, num_nodes={num_nodes}")
+            print(f"Training with lookback={lookback}, weight_decay={weight_decay}, num_layers={num_layers}, num_nodes={num_nodes}")
 
             # Create the model
             model = ModelFactory.create_model(MODEL, lookback, num_nodes, PREDICTED_DATA_POINTS, num_layers).to(device)
@@ -164,7 +164,7 @@ def start_to_train_model(model, train_loader, val_loader):
     # Train the model if the TRAIN_MODEL flag is set to True
     if TRAIN_MODEL:
         print('Training model...')
-        train_model(model, train_loader, val_loader, NUM_EPOCHS, LEARNING_RATE, LOSS_FUNCTION, MODEL_SAVE_PATH, PATIENCE)
+        train_model(model, train_loader, val_loader, NUM_EPOCHS, 0.0, LOSS_FUNCTION, MODEL_SAVE_PATH, PATIENCE)
     else:
         # Load the pre-trained model weights
         print('Loading saved model...')
@@ -198,7 +198,7 @@ def main():
     print(f'Results saved to {log_file_path}')
 
     # Evaluate best model
-    best_lookback, best_lr, best_num_layers, best_num_nodes = best_params
+    best_lookback, best_weight_decay, best_num_layers, best_num_nodes = best_params
     print('Creating model...')
     best_model = ModelFactory.create_model(MODEL, best_lookback, best_num_nodes, PREDICTED_DATA_POINTS, best_num_layers).to(device)
     best_model.load_state_dict(best_model_state)

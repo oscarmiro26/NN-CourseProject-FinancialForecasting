@@ -32,7 +32,7 @@ import os
 base_path = os.path.dirname(os.path.abspath(__file__))
 mlp_dir = os.path.join(base_path, '..', 'MLP')
 os.makedirs(mlp_dir, exist_ok=True)
-MODEL_SAVE_PATH = os.path.join(mlp_dir, 'mlp_model.pth')
+MODEL_SAVE_PATH = os.path.join(mlp_dir, 'mlp_model_tuned.pth')
 
 TRAIN_MODEL = True
 VERIFY_PREPROCESSING = False
