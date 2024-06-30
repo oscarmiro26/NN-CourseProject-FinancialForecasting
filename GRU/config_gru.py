@@ -35,12 +35,6 @@ OUTPUT_SIZE = 1
 LEARNING_RATE = 0.001          # Learning rate for the optimizer
 PATIENCE = 50                    # Number of epochs with no improvement before stopping
 
-# Grid search parameters
-GRID_SEARCH_PARAMS = {
-    'batch_size': [32, 50],
-    'num_epochs': [50, 100],
-    'hidden_size': [10, 32, 50],
-}
 
 # Define the path for saving and loading the model in the MLP directory
 mlp_dir = os.path.join(base_path, '..', 'GRU')

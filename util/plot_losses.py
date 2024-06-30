@@ -8,7 +8,6 @@ def plot_losses(log_file_path):
     for result in results:
         lookback = result['lookback']
         lr = result['learning_rate']
-        dropout = result['dropout']
         num_layers = result['num_layers']
         num_nodes = result['num_nodes']
         train_losses = result['train_losses']
@@ -17,7 +16,7 @@ def plot_losses(log_file_path):
         plt.figure(figsize=(10, 6))
         plt.plot(train_losses, label='Training Loss')
         plt.plot(val_losses, label='Validation Loss')
-        plt.title(f"Losses for Lookback={lookback}, LR={lr}, Dropout={dropout}, Layers={num_layers}, Nodes={num_nodes}")
+        plt.title(f"Losses for Lookback={lookback}, LR={lr}, Layers={num_layers}, Nodes={num_nodes}")
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
         plt.legend()

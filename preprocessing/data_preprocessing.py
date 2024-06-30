@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Add the project root directory to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
@@ -70,6 +76,7 @@ def prepare_data(data, window=12, exclude_points=PREDICTION_SIZE):
             detrended_series_list.append(detrended_series)
             seasonal_list.append(seasonal)
             residual_list.append(residual)
+
         except ValueError as e:
             print(f"Skipping series {i} due to insufficient length: {e}")
 
@@ -119,21 +126,29 @@ def normalize_data(train_residuals_list, val_residuals_list, test_residuals_list
         scaled_train_residuals_list.append(scaled_train_res)
         train_scalers.append(train_scaler)
         
-        # Transform the validation data using the scaler fitted on the training data
-        scaled_val_res = train_scaler.transform(val_res_np)
+        # Fit the scaler on the validation data and transform it
+        val_scaler = MinMaxScaler(feature_range=(-1, 1))
+        scaled_val_res = val_scaler.fit_transform(val_res_np)
         scaled_val_residuals_list.append(scaled_val_res)
-        val_scalers.append(train_scaler)
+        val_scalers.append(val_scaler)
 
-        # Transform the test data using the scaler fitted on the training data
-        scaled_test_res = train_scaler.transform(test_res_np)
+        # Fit the scaler on the test data and transform it
+        test_scaler = MinMaxScaler(feature_range=(-1, 1))
+        scaled_test_res = test_scaler.fit_transform(test_res_np)
         scaled_test_residuals_list.append(scaled_test_res)
-        test_scalers.append(train_scaler)
+        test_scalers.append(test_scaler)
 
         # Transform all residuals using the scaler fitted on the training data
         scaled_all_res = train_scaler.transform(all_res_np)
         scaled_all_residuals_list.append(scaled_all_res)
 
-    return scaled_train_residuals_list, scaled_val_residuals_list, scaled_test_residuals_list, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers
+    # Concatenate the scaled data
+    scaled_train_data = np.concatenate(scaled_train_residuals_list)
+    scaled_val_data = np.concatenate(scaled_val_residuals_list)
+    scaled_test_data = np.concatenate(scaled_test_residuals_list)
+
+    return scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers
+
 
 def create_datasets(look_back):
     # Load the dataset from the specified CSV file
@@ -144,47 +159,31 @@ def create_datasets(look_back):
     # Preprocess the data
     original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list = start_preprocess_data(data, TREND_CALCULATION_WINDOW)
     
+    #plot_all_lists_after_preprocessing(original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list)
+
     # Split the data
     train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test = split_data(residual_list, VALIDATION_SPLIT, PREDICTION_SIZE)
     
     # Debug statements for data splitting
     for i in range(len(train_residuals_list)):
-        #print(f"Split lengths for sequence {i}: train={len(train_residuals_list[i])}, val={len(val_residuals_list[i])}, test={len(test_residuals_list[i])}")
-        pass
+        print(f"Split lengths for sequence {i}: train={len(train_residuals_list[i])}, val={len(val_residuals_list[i])}, test={len(test_residuals_list[i])}")
 
     # Normalize the data
-    scaled_train_residuals_list, scaled_val_residuals_list, scaled_test_residuals_list, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test)
+    scaled_train_data, scaled_val_data, scaled_test_data, scaled_all_residuals_list, train_scalers, val_scalers, test_scalers = normalize_data(train_residuals_list, val_residuals_list, test_residuals_list, all_residuals_except_test)
 
     # Create datasets for training and validation
-    X_train_list, Y_train_list = [], []
-    X_val_list, Y_val_list = [], []
+    X_train, Y_train = create_dataset(scaled_train_data, look_back)
+    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+    print("X_train shape:", X_train.shape)
 
-    for series, (scaled_train_data, scaled_val_data) in enumerate(zip(scaled_train_residuals_list, scaled_val_residuals_list)):
-        if len(scaled_train_data) <= look_back or len(scaled_val_data) <= look_back:
-            print(f'Skipping series {series} because a split size is smaller than the look back')
-            continue
-                
-        X_train, Y_train = create_dataset(scaled_train_data, look_back)
-        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-        X_train_list.append(X_train)
-        Y_train_list.append(Y_train)
-
-
-        X_val, Y_val = create_dataset(scaled_val_data, look_back)
-        X_val = np.reshape(X_val, (X_val.shape[0], X_val.shape[1], 1))
-        X_val_list.append(X_val)
-        Y_val_list.append(Y_val)
-    
-    # Concatenate all the training and validation sets
-    X_train = np.concatenate(X_train_list)
-    Y_train = np.concatenate(Y_train_list)
-    X_val = np.concatenate(X_val_list)
-    Y_val = np.concatenate(Y_val_list)
+    X_val, Y_val = create_dataset(scaled_val_data, look_back)
+    X_val = np.reshape(X_val, (X_val.shape[0], X_val.shape[1], 1))
+    print("X_val shape:", X_val.shape)
     
     # Convert to torch tensors
     X_train = torch.Tensor(X_train).to(device)
-    Y_train = torch.Tensor(Y_train).to(device)
     X_val = torch.Tensor(X_val).to(device)
+    Y_train = torch.Tensor(Y_train).to(device)
     Y_val = torch.Tensor(Y_val).to(device)
 
     # Return the created datasets and additional information
@@ -206,13 +205,9 @@ def create_datasets(look_back):
 
 def main():
     # Loading the data
-    data_file = 'M3C_Monthly.csv'
-    data = pd.read_csv(data_file)
+    datasets = create_datasets(12)
+    X_train, Y_train, X_val, Y_val, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = datasets
 
-    window = 6
-
-    preprocessed_data = prepare_data(data, window)
-    plot_all_lists_after_preprocessing(*preprocessed_data)
 
 if __name__ == '__main__':
     main()

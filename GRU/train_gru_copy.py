@@ -184,11 +184,11 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Define hyperparameter grid
-    lookback_values = [4, 5]#, 10, 20]
-    learning_rates = [0.001]#, 0.01, 0.1]
-    dropouts = [0.1]#, 0.3, 0.5]
-    num_layers_list = [1]#, 2, 3]
-    num_nodes_list = [50, 100]#, 200]
+    lookback_values = [20]
+    learning_rates = [0.001]
+    dropouts = [00.5]
+    num_layers_list = [1, 2]
+    num_nodes_list = [32, 64]
 
     # Perform grid search
     print('Starting grid search...')

@@ -174,44 +174,42 @@ def naive_predictor(actual_residuals, prediction_size):
     return naive_predictions
 
 
-
-
-
-
 def plot_all_lists_after_preprocessing(original_series_list, trend_list, detrended_series_list, seasonal_list, residual_list):
-    # Plotting the first time series as an example
-    plt.figure(figsize=(12, 6))
-    plt.plot(original_series_list[0], label='Original Time Series')
-    plt.plot(trend_list[0], label='Trend (Moving Average)', color='red')
-    plt.title('Time Series with Trend')
-    plt.xlabel('Time')
-    plt.ylabel('Value')
-    plt.legend()
-    plt.show()
+    def plot_series_with_trend(original_series, trend_series, title, original_label, trend_label, color_original='blue', color_trend='red'):
+        plt.figure(figsize=(12, 6))
+        plt.plot(original_series, label=original_label, color=color_original)
+        plt.plot(trend_series, label=trend_label, color=color_trend)
+        plt.title(title)
+        plt.xlabel('Time')
+        plt.ylabel('Value')
+        plt.legend()
+        plt.xticks(ticks=range(0, len(original_series), 5))  # Set x-ticks to label every 5th value
+        plt.show()
 
-    plt.figure(figsize=(12, 6))
-    plt.plot(detrended_series_list[0], label='Detrended Time Series', color='green')
-    plt.title('Detrended Time Series')
-    plt.xlabel('Time')
-    plt.ylabel('Value')
-    plt.legend()
-    plt.show()
+    for i in range(len(original_series_list)):
+        # Plot original series with trend
+        plot_series_with_trend(original_series_list[i], trend_list[i], 'Original Series with Trend', 'Original Series', 'Trend (Moving Average)', color_original='blue', color_trend='red')
 
-    plt.figure(figsize=(12, 6))
-    plt.plot(seasonal_list[0], label='Seasonal Component', color='purple')
-    plt.title('Seasonal Component')
-    plt.xlabel('Time')
-    plt.ylabel('Value')
-    plt.legend()
-    plt.show()
+        # Plot detrended series with seasonal component
+        plt.figure(figsize=(12, 6))
+        plt.plot(seasonal_list[i], label='Seasonal Component', color='purple')
+        plt.title('Seasonal Component')
+        plt.xlabel('Time')
+        plt.ylabel('Value')
+        plt.legend()
+        plt.xticks(ticks=range(0, len(seasonal_list[i]), 5))  # Set x-ticks to label every 5th value
+        plt.show()
 
-    plt.figure(figsize=(12, 6))
-    plt.plot(residual_list[0], label='Deseasonalized (Residual) Time Series', color='orange')
-    plt.title('Deseasonalized (Residual) Time Series')
-    plt.xlabel('Time')
-    plt.ylabel('Value')
-    plt.legend()
-    plt.show()
+        # Plot original series with residual
+        plt.figure(figsize=(12, 6))
+        plt.plot(residual_list[i], label='Deseasonalized (Residual) Series', color='orange')
+        plt.title('Original Series with Residual')
+        plt.xlabel('Time')
+        plt.ylabel('Value')
+        plt.legend()
+        plt.xticks(ticks=range(0, len(residual_list[i]), 5))  # Set x-ticks to label every 5th value
+        plt.show()
+
 
 def plot_actual_vs_predicted(original_series_list, reconstructed_mlp_data, reconstructed_naive_data, length=18):
     num_series = len(original_series_list)

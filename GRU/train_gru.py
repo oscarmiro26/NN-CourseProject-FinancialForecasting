@@ -140,7 +140,7 @@ def main():
     train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
    
     print('Creating model...')
-    model = ModelFactory.create_model(MODEL, INPUT_SIZE, HIDDEN_SIZE_1, NUM_LAYERS, OUTPUT_SIZE, 0.0).to(device)
+    model = ModelFactory.create_model(MODEL, INPUT_SIZE, 32, 1, OUTPUT_SIZE, 0.3).to(device)
 
     start_to_train_model(model, train_loader, val_loader)
 
