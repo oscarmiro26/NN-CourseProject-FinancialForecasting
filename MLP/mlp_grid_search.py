@@ -22,8 +22,8 @@ from util.util import plot_predictions, denormalize_predictions, evaluate_predic
 from MLP.config_mlp import *
 
 # Define the training function
-def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss_function, model_save_path, patience=5):
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+def train_model(model, train_loader, val_loader, num_epochs, weight_decay, loss_function, model_save_path, patience=5):
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=weight_decay)
     best_val_loss = float('inf')
     epochs_without_improvement = 0
     total_iterations = len(train_loader) * num_epochs  # Total number of iterations
@@ -79,7 +79,7 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, loss
     return train_losses, val_losses
 
 # Function to perform grid search
-def grid_search(lookback_values, learning_rates, num_layers_list, num_nodes_list, num_epochs, loss_function, model_save_path, patience=5):
+def grid_search(lookback_values, weight_decays, num_layers_list, num_nodes_list, num_epochs, loss_function, model_save_path, patience=5):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     best_params = None
     best_val_loss = float('inf')
@@ -90,7 +90,7 @@ def grid_search(lookback_values, learning_rates, num_layers_list, num_nodes_list
         datasets = create_datasets(lookback)
         X_train, Y_train, X_val, Y_val, trend_list, seasonal_list, test_residuals_list, original_series_list, residual_list, train_scalers, val_scalers, test_scalers, scaled_all_residuals_list = datasets
 
-        for lr, num_layers, num_nodes in itertools.product(learning_rates, num_layers_list, num_nodes_list):
+        for weight_decay, num_layers, num_nodes in itertools.product(weight_decays, num_layers_list, num_nodes_list):
             print(f"Training with lookback={lookback}, lr={lr}, num_layers={num_layers}, num_nodes={num_nodes}")
 
             # Create the model
@@ -99,11 +99,11 @@ def grid_search(lookback_values, learning_rates, num_layers_list, num_nodes_list
             # Create data loaders
             train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val)
 
-            train_losses, val_losses = train_model(model, train_loader, val_loader, num_epochs, lr, loss_function, model_save_path, patience)
+            train_losses, val_losses = train_model(model, train_loader, val_loader, num_epochs, weight_decay, loss_function, model_save_path, patience)
 
             results.append({
                 'lookback': lookback,
-                'learning_rate': lr,
+                'weight_decay': weight_decay,
                 'num_layers': num_layers,
                 'num_nodes': num_nodes,
                 'train_losses': train_losses,
@@ -112,7 +112,7 @@ def grid_search(lookback_values, learning_rates, num_layers_list, num_nodes_list
 
             if val_losses[-1] < best_val_loss:
                 best_val_loss = val_losses[-1]
-                best_params = (lookback, lr, num_layers, num_nodes)
+                best_params = (lookback, weight_decay, num_layers, num_nodes)
                 best_model_state = model.state_dict()
                 best_dataset = datasets
 
@@ -184,13 +184,13 @@ def main():
 
     # Define hyperparameter grid
     lookback_values = [4, 8, 12, 16]
-    learning_rates = [0.001]
+    weight_decay_list = [1, 0.1, 0.001]
     num_layers_list = [1, 2]
     num_nodes_list = [2, 4, 8, 16, 32, 64]
 
     # Perform grid search
     print('Starting grid search...')
-    results, best_params, best_model_state, best_dataset = grid_search(lookback_values, learning_rates, num_layers_list, num_nodes_list, NUM_EPOCHS, LOSS_FUNCTION, MODEL_SAVE_PATH, PATIENCE)
+    results, best_params, best_model_state, best_dataset = grid_search(lookback_values, weight_decay_list, num_layers_list, num_nodes_list, NUM_EPOCHS, LOSS_FUNCTION, MODEL_SAVE_PATH, PATIENCE)
 
     # Save results to log file
     log_file_path = 'grid_search_results.json'
